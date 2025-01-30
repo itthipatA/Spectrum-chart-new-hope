@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- <meta http-equiv="X-UA-Compatible" content="IE=edge"> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thailand Spectrum Chart</title>
+    <link rel="icon" href="spectrum_icon.jpg" type="image/jpg">
+    <link rel="stylesheet" href="css.css">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href='https://fonts.googleapis.com/css?family=Sarabun' rel='stylesheet'>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-b5kHyXgcpbZJO/tY9Ul7kGkf1S0CWuKcCD38l8YkeH8z8QjE0GmW1gYU5S9FOnJ0"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.3/xlsx.full.min.js"></script>
+
+
+</head>
+
+<body style="font-family: 'Sarabun';font-size: 22px;">
+    <section  class="min-vh-100">
+        <div id="Main" class="container-fluid" style="padding: 0px;">
+            <div class="row">
+                <div class="container" style="padding: 0px;">
+                    <div class="row">
+                      <div class="col-sm" style="padding: 0px;">
+                        <!-- <div style="text-align: center; font-weight: bold; margin-top: 10px;">Thailand National Frequency Allocation Table</div> -->
+
+                        <div class="menu-container" >
+                            <h2 id="nfat" class="menu-item selected" onclick="selectMenu(this)">Thailand National Frequency Allocation Chart</h2>
+                            <h2 id="unlicensed" class="menu-item" onclick="selectMenu(this)">Thailand Unlicensed Frequency Table</h2>
+                            <!-- <h2 id="IMT" class="menu-item" onclick="selectMenu(this)">Thailand IMT Frequency Chart</h2> -->
+                          </div>
+                          
+                      </div>
+                    </div>
+                  </div>
+            </div>
+
+            <div class="row" style="margin-left: 0px;">
+            
+                <div id="section_chart" class="col-8" style="padding: 0px; margin-left: 30px; margin-right: 80px;">
+                    
+                    <div class="frequency-search-container">
+                        <label for="inputBox_StartFrequency" style="font-size: 13px;">Start Frequency:</label>
+                        <input class="inputBox" type="number" min="0" id="inputBox_StartFrequency" style="margin-right: 10px;" oninput="filterFrequency()">
+                        <label for="inputBox_StopFrequency" style="font-size: 13px;">Stop Frequency:</label>
+                        <input class="inputBox" type="number" min="0" id="inputBox_StopFrequency" style="margin-right: 10px;" oninput="filterFrequency()">
+                        <select id="unit_dropdown" onclick="filterFrequency()" style="font-size: 13px;">
+                            <option value="MHz">MHz</option>
+                            <option value="GHz">GHz</option>
+                            <option value="kHz">kHz</option>
+                            <option value="Hz">Hz</option>
+                          </select>
+                          <br>
+                    </div>
+                    
+                    <div id="output"></div>
+                    <script type="text/javascript" src="CreateChart.js"></script>
+                </div>
+                
+                <div id="section_blank" class="col-1" style="padding: 0px; width: 5%;"></div>
+
+                <div id="section_legend" class="col-2" style="padding: 0px; margin-left: 0px; align-content:right">
+                    <!-- <div style="text-align: center; font-size: 16px; font-weight: bold;">Applications</div> -->
+                    
+                    <input id="toggle-on" class="toggle toggle-left" name="toggle" value="false" type="radio" checked onchange="toggletoService()" >
+                    <label for="toggle-on" class="btn" style="text-align: center; font-weight: bold;">Services</label>
+                    <input id="toggle-off" class="toggle toggle-right" name="toggle" value="true" type="radio" onchange="toggletoApplication()">
+                    <label for="toggle-off" class="btn" style="text-align: center; font-weight: bold;">Applications</label>
+                    <br>
+
+                    <label for="inputBox_legend" style="font-size: 13px;">Search:</label>
+                    <input class="inputBox" type="text" id="inputBox_legend" oninput="logInput()">
+                    <div id="Legend"><br></div>
+                </div>
+            </div>
+
+
+
+
+        </div>
+
+
+    </section>
+
+
+
+
+</body>
+
+
+</html>
