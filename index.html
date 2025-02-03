@@ -23,6 +23,8 @@
 </head>
 
 <body style="font-family: 'Sarabun';font-size: 22px;">
+
+
     <section  class="min-vh-100">
         <div id="Main" class="container-fluid" style="padding: 0px;">
             <div class="row">
@@ -43,9 +45,11 @@
             </div>
 
             <div class="row" style="margin-left: 0px;">
-            
                 <div id="section_chart" class="col-8" style="padding: 0px; margin-left: 30px; margin-right: 80px;">
                     
+                    <canvas id="canvas"></canvas>
+                    <div id="cards-container"></div>
+
                     <div class="frequency-search-container">
                         <label for="inputBox_StartFrequency" style="font-size: 13px;">Start Frequency:</label>
                         <input class="inputBox" type="number" min="0" id="inputBox_StartFrequency" style="margin-right: 10px;" oninput="filterFrequency()">
@@ -62,8 +66,7 @@
                 
 
                     <div style="height: 10px;"></div>
-                    <canvas id="canvas"></canvas>
-                    <div id="cards-container"></div>
+
                     
                     <div id="output"></div>
                     <script type="text/javascript" src="CreateChart.js"></script>
@@ -88,7 +91,7 @@
                     <input class="inputBox" type="text" id="inputBox_legend" oninput="logInput()">
                     <div id="Legend"><br></div>
                 </div>
-                <div id="Legend-horizontal"></div>
+                
             </div>
 
 

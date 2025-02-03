@@ -3,6 +3,7 @@ var SelectedMenu = "nfat";
 var height_factor = 0.07;        // set factor to X % of screen height   / the bigger number, the taller blocks
 var height_newline_factor = 10;  // the bigger number, the smaller newline
 var label_font_size = 10; // in pixel unit / default is 12
+var hide = 1;
 
 var screenWidth = 0;
 var screenHeight = 0;
@@ -552,8 +553,8 @@ function plot(data){
         text += '<span id="newline-container" class="newline-container" style="height:'+height_newline+'px;"> </span>'; //insert new line
 
     } // end of row-loop
-
-    
+    if(hide==0){text +='<div id="Legend-horizontal"></div>'}
+        
     $('#output').append(text);
         
 }
