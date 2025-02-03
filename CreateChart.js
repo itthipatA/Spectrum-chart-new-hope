@@ -48,6 +48,7 @@ window.addEventListener('resize', logContainerHeight);
 window.addEventListener('resize', logScreenWidth);
 window.addEventListener('resize', logScreenHeight);
 window.addEventListener('resize', reload);
+window.addEventListener('scroll', drawConnections);
 
 function reload()
 {
@@ -147,6 +148,7 @@ async function ExceltoJson() {
             jsonDataArray_filtered = jsonDataArray;
             plot(jsonDataArray);
             createServiceLegend(colorArray);
+            createServiceLegendHorizontal(colorArray);
 
         } else {
             console.error('Failed to load Excel file:', xhr.statusText);
@@ -489,13 +491,14 @@ function plot(data){
                     
 
                     // '<span style="color:'+mapped_color+';">&#x2B23</span>'
-                    var card_information = stack_member[k].EngService + ' Service '+card_information_direction+' <br>Designation : ' +stack_member[k].order+ '<br>' +Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label + '<br>Bandwidth : '+ stack_member[k].Bandwidth +' '+Stop_Frequency_Unit_label+ '<br> Footnote : 5.xx (to be develop)' ; 
+                    var card_header = Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label ;
+                    var card_information = stack_member[k].EngService + ' Service '+card_information_direction+' <br>Designation : ' +stack_member[k].order+ '<br>Bandwidth : '+ stack_member[k].Bandwidth +' '+Stop_Frequency_Unit_label+ '<br> Footnote : 5.xx (to be develop)' ; 
                     // var card_information = stack_member[k].EngService + ' Service<br>Designation : ' +stack_member[k].order+ '<br>' +Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label + '<br>Bandwidth : '+ stack_member[k].Bandwidth +' '+Stop_Frequency_Unit_label+ '<br> Footnote : 5.xx' ; 
 
 
 
                 
-                    text +=         '<span id="'+stack_member[k].id+'" class="box" data-detail="'+card_information+'" style="font-size:'+fontsize+'px; background-image: '+service_order_style+'; margin-left:'+offset_start_freq+'px; line-height:'+height+'px; height:'+height+'px; width:'+width+'px; background-color:'+mapped_color+';' ;
+                    text +=         '<span id="'+stack_member[k].id+'" class="box" data-content="'+card_header+'" data-detail="'+card_information+'" style="font-size:'+fontsize+'px; background-image: '+service_order_style+'; margin-left:'+offset_start_freq+'px; line-height:'+height+'px; height:'+height+'px; width:'+width+'px; background-color:'+mapped_color+';' ;
                 
         
                 if (stack_member[k].EngService == "gap")
@@ -666,6 +669,48 @@ function leftJoin(leftArray, rightArray, leftKey, rightKey) {
     });
 }
 
+function createServiceLegendHorizontal(colorArray) {
+    var colorLegend = "";
+
+    var data_legend = [];
+
+    for (var i = 0; i < jsonDataArray_filtered.length; i++) {
+        data_legend[i] = {};
+        data_legend[i].Service = jsonDataArray_filtered[i].EngService;
+        data_legend[i].Direction = jsonDataArray_filtered[i].Direction;
+    }
+    var grouped_legend = GroupAndRemoveDupplicate(data_legend);
+    grouped_legend = leftJoin(colorArray, grouped_legend, "Service", "Service");
+
+    colorLegend += '<div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">';
+
+    for (var i = 0; i < grouped_legend.length; i++) {
+        colorLegend += '<div id="' + grouped_legend[i].Service + '" class="legend" style="display: inline-flex; align-items: center; cursor: default;">';
+        colorLegend += '<span class="legend" style="color: ' + grouped_legend[i].Color + '; font-size: 20px;">&#x2B23;</span>';
+        colorLegend += '<span class="legend" style="margin-left: 5px;" onclick="onclickLegend(this)">' + grouped_legend[i].Service + '</span>';
+
+        for (var j = 0; j < grouped_legend[i].Direction.length; j++) {
+            var id_string = String(grouped_legend[i].Service + "*" + grouped_legend[i].Direction[j]).replace(/ /g, "_");
+
+            var directionSymbol = "";
+            if (grouped_legend[i].Direction[j] == "Earth-to-Space") directionSymbol = "&#8593"; // ↑
+            else if (grouped_legend[i].Direction[j] == "Space-to-Earth") directionSymbol = "&#8595"; // ↓
+            else if (grouped_legend[i].Direction[j] == "Space-to-Space") directionSymbol = "&#8596"; // ↔
+            else if (grouped_legend[i].Direction[j] == "Deep Space") directionSymbol = "&#11097"; // ⦿
+
+            if (directionSymbol) {
+                colorLegend += '<span id="' + id_string + '" class="legend-direction" style="font-size: 18px; margin-left: 8px; cursor: pointer;" onclick="onclickLegend(this)">' + directionSymbol + '</span>';
+            }
+        }
+        colorLegend += '</div>';
+    }
+
+    colorLegend += "</div>";
+
+    $("#Legend-horizontal").html(colorLegend);
+}
+
+
 
 function createApplicationLegend(application_legend_array) {
     var application_legend ="";
@@ -768,6 +813,7 @@ function toggletoService() {
         return child.id; });
     removeElementsByIds(output_elementIds);
     createServiceLegend(colorArray_filtered);
+    createServiceLegendHorizontal(colorArray_filtered);
     ToggleLegend = "service";
     console.log("to service")    
 }
@@ -1196,6 +1242,7 @@ function PerformSearch(inputValue_legend) {
 
         removeElementsByIds(ServiceArray);
         createServiceLegend(colorArray_filtered);
+        createServiceLegendHorizontal(colorArray_filtered);
     }
     
     else {      //ToggleLegend == "application"
@@ -1619,6 +1666,7 @@ function filteredLegend(){
     const filtered_color = colorArray.filter(word => filtered_services.includes(word.Service));
     removeElementsByIds(ServiceArray);
     createServiceLegend(filtered_color);
+    createServiceLegendHorizontal(filtered_color);
     
     colorArray_filtered = filtered_color;
     ServiceArray_filtered = [];
@@ -1795,90 +1843,142 @@ function selectMenu(menu) {
 }
 
 
+// -----------------------------Create card----------------------------------------------------------
 
+let activeCards = new Map();  
+const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let highestZIndex = 1;
 
-
-var spanColor = 0;
-$(function() {
-    let zIndexCounter = 1000;
-
-    $('section').on('click', '.box', function(event) {
-        let myDetail = $(this).attr('data-detail');
-        console.log(`Clicked on span with detail: ${myDetail}`);
-        spanColor = $(this).css('background-color');
-        console.log(`Clicked on span with detail: ${myDetail}`);
-        let floatingObject = $(`.floatingObject[data-detail="${myDetail}"]`);
-        if (floatingObject.length) {
-            console.log(`Floating object with detail "${myDetail}" already exists. Bringing to front.`);
-            floatingObject.css('z-index', ++zIndexCounter);
-        } else {
-            console.log(`Creating new floating object with detail: ${myDetail}`);
-            createFloatingObject(myDetail, event.clientX, event.clientY);
+        function setCanvasSize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
         }
-    });
+        setCanvasSize();
+        window.addEventListener('resize', setCanvasSize);
 
-    function createFloatingObject(detail, x, y) {
-        const floatingObject = $('<div class="floatingObject"></div>');
-        floatingObject.css({
-            left: x + 'px',
-            top: y + 'px',
-            zIndex: ++zIndexCounter,
-            boxShadow: `0 0 20px ${spanColor}`
-        }).attr('data-detail', detail);
-    
-        const header = $('<div class="header"></div>');
-        const closeButton = $('<span class="closeButton">&times;</span>');
-        header.append(closeButton);
-        floatingObject.append(header);
-    
-        const content = $('<div class="content"></div>').html(detail);  // Use .html() instead of .text()
-        floatingObject.append(content);
-    
-        $('body').append(floatingObject);
-    
-        closeButton.on('click', function() {
-            floatingObject.remove();
+        document.body.addEventListener('click', (e) => {
+            const span = e.target.closest('.box'); // Ensure click is on a span
+            if (span && !activeCards.has(span)) {
+                createCard(e, span);
+            }
         });
+        
+        function createCard(e, span) {
+            console.log("Card created for:", span.innerText);
+            const card = document.createElement('div');
+            card.className = 'custom-card card';
+                
+            // Set initial position accounting for any scroll
+            const initialX = e.pageX-150;  // Use pageX instead of clientX
+            const initialY = e.pageY-100;  // Use pageY instead of clientY
+
+            card.style.position = 'absolute'; // Make sure position is absolute
+            card.style.left = `${initialX}px`;
+            card.style.top = `${initialY}px`;
+
+            card.innerHTML = `
+                <div class="card-header">
+                    <span>${span.dataset.content}</span>
+                    <div class="close-btn">×</div>
+                </div>
+                <div class="card-body">${span.dataset.detail}</div>
+            `;
+
+            const closeBtn = card.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => {
+                card.remove();
+                activeCards.delete(span);
+                drawConnections();
+            });
+
+            const header = card.querySelector('.card-header');
+            let isDragging = false;
+            let currentX;
+            let currentY;
+            let initialMouseX;
+            let initialMouseY;
+
+            header.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                offset = [card.offsetLeft - e.clientX, card.offsetTop - e.clientY];
+                bringToFront(card);
+            });
+            const handleMouseMove = (e) => {
+                if (isDragging) {
+                    // Calculate the distance moved from the initial position
+                    const dx = e.clientX - initialMouseX;
+                    const dy = e.clientY - initialMouseY;
+                    
+                    // Update position based on the initial card position plus the movement
+                    card.style.left = `${currentX + dx}px`;
+                    card.style.top = `${currentY + dy}px`;
+                    drawConnections();
+                }
+            };
+        
+            const handleMouseUp = () => {
+                isDragging = false;
+            };
+        
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    card.style.left = `${e.clientX + offset[0]}px`;
+                    card.style.top = `${e.clientY + offset[1]}px`;
+                    drawConnections();
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            activeCards.set(span, card);
+            document.getElementById('cards-container').appendChild(card);
+            bringToFront(card);
+            drawConnections();
+        }
+
+        function bringToFront(card) {
+            highestZIndex++;
+            card.style.zIndex = highestZIndex;
+            drawConnections();
+        }
+
+        function drawConnections() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+            activeCards.forEach((card, span) => {
+                const spanRect = span.getBoundingClientRect();
+                const cardRect = card.getBoundingClientRect();
+        
+                // Get canvas position relative to the document
+                const canvasRect = canvas.getBoundingClientRect();
+                
+                // Adjust positions by subtracting canvas offset
+                const spanX = spanRect.left + spanRect.width / 2 - canvasRect.left;
+                const spanY = spanRect.top + spanRect.height / 2 - canvasRect.top;
+                const cardX = cardRect.left + cardRect.width / 2 - canvasRect.left;
+                const cardY = cardRect.top - canvasRect.top;
+        
+                ctx.beginPath();
+                ctx.moveTo(spanX, spanY);
+                ctx.lineTo(cardX, cardY);
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+        
     
-        floatingObject.on('mousedown', function() {
-            $(this).css('z-index', ++zIndexCounter);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                activeCards.forEach(card => card.remove());
+                activeCards.clear();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
         });
-    
-        dragElement(floatingObject[0]);
-    }
-    
-
-    function dragElement(element) {
-        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-        element.onmousedown = dragMouseDown;
-
-        function dragMouseDown(e) {
-            e = e || window.event;
-            e.preventDefault();
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-            console.log(`Started dragging floating object with detail "${element.getAttribute('data-detail')}" from position (${pos3}px, ${pos4}px).`);
-            element.style.zIndex = ++zIndexCounter;
-            document.onmouseup = closeDragElement;
-            document.onmousemove = elementDrag;
-        }
-
-        function elementDrag(e) {
-            e = e || window.event;
-            e.preventDefault();
-            pos1 = pos3 - e.clientX;
-            pos2 = pos4 - e.clientY;
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-            element.style.top = (element.offsetTop - pos2) + "px";
-            element.style.left = (element.offsetLeft - pos1) + "px";
-            console.log(`Dragging to position (${pos3}px, ${pos4}px).`);
-        }
-
-        function closeDragElement() {
-            console.log(`Stopped dragging floating object with detail "${element.getAttribute('data-detail')}".`);
-            document.onmouseup = null;
-            document.onmousemove = null;
-        }
-    }
-});
