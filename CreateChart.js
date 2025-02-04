@@ -150,6 +150,7 @@ async function ExceltoJson() {
             plot(jsonDataArray);
             createServiceLegend(colorArray);
             createServiceLegendHorizontal(colorArray);
+            console.log(jsonDataArray);
 
         } else {
             console.error('Failed to load Excel file:', xhr.statusText);
@@ -216,9 +217,15 @@ function splitTextToArray(data) {
             data[i].Direction = splitted_text;
         }
         else { data[i].Direction = []; }
+
+        var footnoteText = data[i].International_Footnote;
+        if (footnoteText != undefined) {
+            let splittedFootnote = footnoteText.split(',');
+            data[i].International_Footnote = splittedFootnote;
+        } else {
+            data[i].International_Footnote = [];
+        }
     }
-      
-   
     jsonDataArray = data;
     // console.log("end splitTextToArray -----");
 }
@@ -489,13 +496,30 @@ function plot(data){
                     }
                 }
 
-                    
+                var card_information = stack_member[k].EngService + ' Service ' + card_information_direction + 
+                    ' <br>Designation : ' + stack_member[k].order + 
+                    '<br>Bandwidth : ' + Math.round(stack_member[k].Bandwidth * 10000) / 10000 + ' ' + Stop_Frequency_Unit_label + 
+                    '<br> Footnote : ';
 
+                // ----------------------Add footnote link---------------------------
+                if (Array.isArray(stack_member[k].International_Footnote) && stack_member[k].International_Footnote.length > 0) {
+                   
+                    for (var f = 0; f < stack_member[k].International_Footnote.length; f++) {
+                        var footnote = stack_member[k].International_Footnote[f];                             
+                        stack_member[k].International_Footnote[f] = '<span>' + footnote + '</span>';
+                    }
+                    
+                } else {
+                    // ถ้าอาเรย์ว่าง ให้เพิ่มเครื่องหมาย "-"
+                    stack_member[k].International_Footnote[f] = "-";
+                }
+                // ----------------------Add footnote link--------------------------
+                    
                     // '<span style="color:'+mapped_color+';">&#x2B23</span>'
                     var card_header = Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label ;
-                    var card_information = stack_member[k].EngService + ' Service '+card_information_direction+' <br>Designation : ' +stack_member[k].order+ '<br>Bandwidth : '+ stack_member[k].Bandwidth +' '+Stop_Frequency_Unit_label+ '<br> Footnote : 5.xx (to be develop)' ; 
+                    card_information = stack_member[k].EngService + ' Service '+card_information_direction+' <br>Designation : ' +stack_member[k].order+ '<br>Bandwidth : '+ Math.round(stack_member[k].Bandwidth*10000)/10000 +' '+Stop_Frequency_Unit_label+ '<br> Footnote : '+stack_member[k].International_Footnote+ '' ;
                     // var card_information = stack_member[k].EngService + ' Service<br>Designation : ' +stack_member[k].order+ '<br>' +Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label + '<br>Bandwidth : '+ stack_member[k].Bandwidth +' '+Stop_Frequency_Unit_label+ '<br> Footnote : 5.xx' ; 
-
+                    // console.log(stack_member[k].card_information);
 
 
                 
