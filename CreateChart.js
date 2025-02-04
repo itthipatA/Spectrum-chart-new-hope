@@ -683,7 +683,7 @@ function createServiceLegendHorizontal(colorArray) {
     var grouped_legend = GroupAndRemoveDupplicate(data_legend);
     grouped_legend = leftJoin(colorArray, grouped_legend, "Service", "Service");
 
-    colorLegend += '<div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">';
+    colorLegend += '<div id="Legend-horizontal" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">';
 
     for (var i = 0; i < grouped_legend.length; i++) {
         colorLegend += '<div id="' + grouped_legend[i].Service + '" class="legend" style="display: inline-flex; align-items: center; cursor: default;">';
@@ -1843,6 +1843,27 @@ function selectMenu(menu) {
     return hex.toUpperCase(); // Convert to uppercase for consistency
 }
 
+// -----------------------------Horizontal legend----------------------------------------------------------
+
+    document.addEventListener("DOMContentLoaded", function () {
+        let toggleSwitch = document.getElementById('toggleSwitch');
+        if (toggleSwitch) {
+            toggleSwitch.addEventListener('change', function() {
+                let statusText = document.getElementById('ver-hor-text');
+                if (this.checked) { 
+                    hide = 0;
+                    statusText.textContent = "Horizontal legend";
+                    filterFrequency()
+                } else {
+                    hide = 1;
+                    statusText.textContent = "Vertical legend";
+                    filterFrequency()
+                }
+            });
+        }
+    });
+
+
 
 // -----------------------------Create card----------------------------------------------------------
 
@@ -1866,7 +1887,7 @@ const canvas = document.getElementById('canvas');
         });
         
         function createCard(e, span) {
-            console.log("Card created for:", span.innerText);
+            // console.log("Card created for:", span.innerText);
             const card = document.createElement('div');
             card.className = 'custom-card card';
                 

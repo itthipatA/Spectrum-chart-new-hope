@@ -78,18 +78,36 @@
                 
                 <div id="section_blank" class="col-1" style="padding: 0px; width: 5%;"></div>
 
+
                 <div id="section_legend" class="col-2" style="padding: 0px; margin-left: 0px; align-content:right">
+
+                    
+                    <!-- Toggle Switch to Horizontal legend-->
+                    <div class="container-switch">
+                        <label class="switch">
+                            <input type="checkbox" id="toggleSwitch">
+                            <span class="slider"></span>
+                            
+                        </label>
+                        <div>&nbsp;&nbsp;&nbsp;&nbsp;</div>
+                        <div id ="ver-hor-text">Vertical legend</div>
+                    </div>
                     <!-- <div style="text-align: center; font-size: 16px; font-weight: bold;">Applications</div> -->
                     
-                    <input id="toggle-on" class="toggle toggle-left" name="toggle" value="false" type="radio" checked onchange="toggletoService()" >
+                    <!-- <input id="toggle-on" class="toggle toggle-left" name="toggle" value="false" type="radio" checked onchange="toggletoService()" >
                     <label for="toggle-on" class="btn" style="text-align: center; font-weight: bold;">Services</label>
                     <input id="toggle-off" class="toggle toggle-right" name="toggle" value="true" type="radio" onchange="toggletoApplication()">
                     <label for="toggle-off" class="btn" style="text-align: center; font-weight: bold;">Applications</label>
-                    <br>
+                    <br> -->
 
                     <label for="inputBox_legend" style="font-size: 13px;">Search:</label>
                     <input class="inputBox" type="text" id="inputBox_legend" oninput="logInput()">
-                    <div id="Legend"><br></div>
+                    <br>
+
+
+                    
+
+                    <div id="Legend"></div>
                 </div>
                 
             </div>
