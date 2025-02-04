@@ -686,9 +686,9 @@ function createServiceLegendHorizontal(colorArray) {
     colorLegend += '<div id="Legend-horizontal" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">';
 
     for (var i = 0; i < grouped_legend.length; i++) {
-        colorLegend += '<div id="' + grouped_legend[i].Service + '" class="legend" style="display: inline-flex; align-items: center; cursor: default;">';
-        colorLegend += '<span class="legend" style="color: ' + grouped_legend[i].Color + '; font-size: 20px;">&#x2B23;</span>';
-        colorLegend += '<span class="legend" style="margin-left: 5px;" onclick="onclickLegend(this)">' + grouped_legend[i].Service + '</span>';
+        colorLegend += '<div id="' + grouped_legend[i].Service + '" class="legend-hor" style="display: inline-flex; align-items: center; cursor: default;">';
+        colorLegend += '<span class="legend-hor" style="color: ' + grouped_legend[i].Color + '; font-size: 20px;">&#x2B23;</span>';
+        colorLegend += '<span class="legend-hor" style="margin-left: 5px;" >' + grouped_legend[i].Service + '</span>';
 
         for (var j = 0; j < grouped_legend[i].Direction.length; j++) {
             var id_string = String(grouped_legend[i].Service + "*" + grouped_legend[i].Direction[j]).replace(/ /g, "_");
@@ -700,7 +700,7 @@ function createServiceLegendHorizontal(colorArray) {
             else if (grouped_legend[i].Direction[j] == "Deep Space") directionSymbol = "&#11097"; // ⦿
 
             if (directionSymbol) {
-                colorLegend += '<span id="' + id_string + '" class="legend-direction" style="font-size: 18px; margin-left: 8px; cursor: pointer;" onclick="onclickLegend(this)">' + directionSymbol + '</span>';
+                colorLegend += '<span id="' + id_string + '" class="legend-direction-hor" style="font-size: 18px; margin-left: 8px;" >' + directionSymbol + '</span>';
             }
         }
         colorLegend += '</div>';

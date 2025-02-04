@@ -109,6 +109,7 @@
       /* Remove display: flex if not needed */
       /* display: flex; */
       text-align: center;
+      font-size: 13px;
       /* margin: 5px; Optional: adds spacing between items */
   }
 
