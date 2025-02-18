@@ -506,7 +506,6 @@ function plot(data){
                     ' <br>Designation : ' + stack_member[k].order + 
                     '<br>Bandwidth : ' + Bandwidth + ' ' + Stop_Frequency_Unit_label + 
                     '<br> Footnote : ';
-                    console.log(Bandwidth )
                     
 
                 // ----------------------Add footnote link---------------------------
@@ -993,7 +992,7 @@ function onclickLegend(clickedElement){
     
     // for no service is selected but still perform search
     if ((inputValue_legend != "") && (SelectedLegend.length == 0)){
-        console.log(ServiceArray_filtered);
+        // console.log(ServiceArray_filtered);
         selected_data = jsonDataArray_filtered.filter(item => ServiceArray_filtered.includes(item.EngService));
         unselected_data = jsonDataArray_filtered.filter(item => !ServiceArray_filtered.includes(item.EngService));
 console.log("YES");
@@ -1204,8 +1203,8 @@ function filterAndPartitionData(data, attribute, attributeArray) {
     unfilteredData = data.filter(item => !idsToRemove.includes(item.id));
 
 
-    console.log(filteredData);
-    console.log(unfilteredData);
+    // console.log(filteredData);
+    // console.log(unfilteredData);
     return { filteredData, unfilteredData };
 }
 
