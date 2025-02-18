@@ -496,10 +496,18 @@ function plot(data){
                     }
                 }
 
+                var Bandwidth = Math.round(stack_member[k].Bandwidth * 10000) / 10000;
+                    if (Stop_Frequency_Unit_label == "kHz") {Bandwidth = Bandwidth*1000}
+                    else if(Stop_Frequency_Unit_label == "MHz"){Bandwidth = Bandwidth*1}
+                    else if(Stop_Frequency_Unit_label == "GHz"){Bandwidth = Bandwidth/1000}
+                    else {}
+
                 var card_information = stack_member[k].EngService + ' Service ' + card_information_direction + 
                     ' <br>Designation : ' + stack_member[k].order + 
-                    '<br>Bandwidth : ' + Math.round(stack_member[k].Bandwidth * 10000) / 10000 + ' ' + Stop_Frequency_Unit_label + 
+                    '<br>Bandwidth : ' + Bandwidth + ' ' + Stop_Frequency_Unit_label + 
                     '<br> Footnote : ';
+                    console.log(Bandwidth )
+                    
 
                 // ----------------------Add footnote link---------------------------
                 if (Array.isArray(stack_member[k].International_Footnote) && stack_member[k].International_Footnote.length > 0) {
@@ -510,14 +518,14 @@ function plot(data){
                     }
                     
                 } else {
-                    // ถ้าอาเรย์ว่าง ให้เพิ่มเครื่องหมาย "-"
+                    
                     stack_member[k].International_Footnote[f] = "-";
                 }
                 // ----------------------Add footnote link--------------------------
                     
                     // '<span style="color:'+mapped_color+';">&#x2B23</span>'
                     var card_header = Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label ;
-                    card_information = stack_member[k].EngService + ' Service '+card_information_direction+' <br>Designation : ' +stack_member[k].order+ '<br>Bandwidth : '+ Math.round(stack_member[k].Bandwidth*10000)/10000 +' '+Stop_Frequency_Unit_label+ '<br> Footnote : '+stack_member[k].International_Footnote+ '' ;
+                    card_information = stack_member[k].EngService + ' Service '+card_information_direction+' <br>Designation : ' +stack_member[k].order+ '<br>Bandwidth : '+ Bandwidth +' '+Stop_Frequency_Unit_label+ '<br> International Footnote : '+stack_member[k].International_Footnote+ '<br> Thailand Footnote : '+stack_member[k].Thailand_Footnote+ '' ;
                     // var card_information = stack_member[k].EngService + ' Service<br>Designation : ' +stack_member[k].order+ '<br>' +Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label + '<br>Bandwidth : '+ stack_member[k].Bandwidth +' '+Stop_Frequency_Unit_label+ '<br> Footnote : 5.xx' ; 
                     // console.log(stack_member[k].card_information);
 
