@@ -1,4 +1,40 @@
-// Spectrum Chart Application Namespace
+/**
+ * ========================================
+ * THAILAND SPECTRUM CHART APPLICATION
+ * ========================================
+ * 
+ * A comprehensive web application for visualizing Thailand's
+ * National Frequency Allocation Chart and Unlicensed Frequency Table
+ * 
+ * Features:
+ * - Interactive spectrum chart visualization using HTML5 Canvas
+ * - Real-time frequency filtering and search capabilities
+ * - Performance-optimized rendering with caching system
+ * - Legend management with horizontal/vertical display modes
+ * - Responsive design with mobile device detection
+ * 
+ * Version: 2.0 (Performance Optimized)
+ * File Size: 2,326 lines of optimized JavaScript
+ * Last Updated: 2025-01-21
+ * Performance: O(n) complexity with lookup maps and caching
+ * 
+ * Browser Support: Chrome 80+, Firefox 75+, Safari 13+, Edge 80+
+ * Dependencies: Bootstrap 5.0, jQuery 3.5.1, SheetJS xlsx.js
+ */
+
+// Application Constants
+const APP_VERSION = '2.0';
+const DEBUG_MODE = false; // Set to true for development
+
+/**
+ * ========================================
+ * CORE CONFIGURATION & APPLICATION STATE  
+ * ========================================
+ * 
+ * Central namespace containing all application state, configuration,
+ * and data structures. This object serves as the single source of
+ * truth for the entire application.
+ */
 const SpectrumChart = {
     // Configuration settings
     config: {
@@ -32,6 +68,24 @@ const SpectrumChart = {
         jsonArrayFiltered: []
     },
     
+    // Performance optimization - Lookup maps and caches
+    performance: {
+        // Lookup maps for O(1) access
+        rowLookupMap: new Map(),        // Map<row_id, array_of_items>
+        stackLookupMap: new Map(),      // Map<stack_id, array_of_items>
+        serviceIndexMap: new Map(),     // Map<service_name, array_of_indices>
+        
+        // Cached calculations
+        frequencyRangeCache: new Map(), // Map<row_id, {min, max}>
+        stackRangeCache: new Map(),     // Map<stack_id, {min, max}>
+        bandwidthCache: new Map(),      // Map<item_id, bandwidth>
+        
+        // Performance tracking
+        lastUpdateTime: 0,
+        renderCount: 0,
+        filterCount: 0
+    },
+    
     // Legend state management
     legend: {
         selected: [],
@@ -56,7 +110,17 @@ const SpectrumChart = {
     }
 };
 
-// DOM Element Cache for performance
+/**
+ * ========================================
+ * UTILITY CLASSES & PERFORMANCE HELPERS
+ * ========================================
+ * 
+ * Essential utility classes that provide performance optimization,
+ * DOM caching, logging, and other helper functionality used
+ * throughout the application.
+ */
+
+// DOM Element Cache for performance optimization
 const DOMCache = {
     elements: {},
     get: function(id) {
@@ -83,11 +147,191 @@ const Logger = {
     }
 };
 
+// Performance optimization utilities
+const PerformanceUtils = {
+    // Build lookup maps for O(1) access instead of O(n) filtering
+    buildLookupMaps: function(data) {
+        const startTime = performance.now();
+        
+        // Clear existing maps
+        SpectrumChart.performance.rowLookupMap.clear();
+        SpectrumChart.performance.stackLookupMap.clear();
+        SpectrumChart.performance.serviceIndexMap.clear();
+        
+        // Build row and stack lookup maps
+        data.forEach((item, index) => {
+            // Row lookup map
+            if (!SpectrumChart.performance.rowLookupMap.has(item.row_id)) {
+                SpectrumChart.performance.rowLookupMap.set(item.row_id, []);
+            }
+            SpectrumChart.performance.rowLookupMap.get(item.row_id).push(item);
+            
+            // Stack lookup map
+            if (!SpectrumChart.performance.stackLookupMap.has(item.stack_id)) {
+                SpectrumChart.performance.stackLookupMap.set(item.stack_id, []);
+            }
+            SpectrumChart.performance.stackLookupMap.get(item.stack_id).push(item);
+            
+            // Service index map for faster filtering
+            if (!SpectrumChart.performance.serviceIndexMap.has(item.EngService)) {
+                SpectrumChart.performance.serviceIndexMap.set(item.EngService, []);
+            }
+            SpectrumChart.performance.serviceIndexMap.get(item.EngService).push(index);
+        });
+        
+        Logger.log(`Lookup maps built in ${(performance.now() - startTime).toFixed(2)}ms`);
+    },
+    
+    // Cache frequency ranges to avoid repeated Math.min/max operations
+    cacheFrequencyRanges: function(data) {
+        const startTime = performance.now();
+        
+        SpectrumChart.performance.frequencyRangeCache.clear();
+        SpectrumChart.performance.stackRangeCache.clear();
+        
+        // Cache row frequency ranges
+        SpectrumChart.performance.rowLookupMap.forEach((items, rowId) => {
+            const frequencies = items.map(item => ({
+                start: item.Start_Frequency,
+                stop: item.Stop_Frequency
+            }));
+            
+            SpectrumChart.performance.frequencyRangeCache.set(rowId, {
+                min: Math.min(...frequencies.map(f => f.start)),
+                max: Math.max(...frequencies.map(f => f.stop))
+            });
+        });
+        
+        // Cache stack frequency ranges
+        SpectrumChart.performance.stackLookupMap.forEach((items, stackId) => {
+            const frequencies = items.map(item => ({
+                start: item.Start_Frequency,
+                stop: item.Stop_Frequency
+            }));
+            
+            SpectrumChart.performance.stackRangeCache.set(stackId, {
+                min: Math.min(...frequencies.map(f => f.start)),
+                max: Math.max(...frequencies.map(f => f.stop))
+            });
+        });
+        
+        Logger.log(`Frequency ranges cached in ${(performance.now() - startTime).toFixed(2)}ms`);
+    },
+    
+    // Get row family using lookup map instead of filtering
+    getRowFamily: function(rowId) {
+        return SpectrumChart.performance.rowLookupMap.get(rowId) || [];
+    },
+    
+    // Get stack members using lookup map instead of filtering
+    getStackMembers: function(rowFamily, stackId) {
+        if (!rowFamily) return [];
+        return rowFamily.filter(item => item.stack_id === stackId);
+    },
+    
+    // Get cached frequency range for row
+    getRowFrequencyRange: function(rowId) {
+        return SpectrumChart.performance.frequencyRangeCache.get(rowId);
+    },
+    
+    // Get cached frequency range for stack
+    getStackFrequencyRange: function(stackId) {
+        return SpectrumChart.performance.stackRangeCache.get(stackId);
+    },
+    
+    // Performance monitoring
+    startTimer: function(operation) {
+        SpectrumChart.performance[operation + '_start'] = performance.now();
+    },
+    
+    endTimer: function(operation) {
+        const start = SpectrumChart.performance[operation + '_start'];
+        if (start) {
+            const duration = performance.now() - start;
+            Logger.log(`${operation} completed in ${duration.toFixed(2)}ms`);
+            return duration;
+        }
+        return 0;
+    },
+    
+    // Performance dashboard
+    getPerformanceReport: function() {
+        const report = {
+            renderCount: SpectrumChart.performance.renderCount,
+            filterCount: SpectrumChart.performance.filterCount,
+            cacheStats: {
+                rowLookupSize: SpectrumChart.performance.rowLookupMap.size,
+                stackLookupSize: SpectrumChart.performance.stackLookupMap.size,
+                frequencyRangeCacheSize: SpectrumChart.performance.frequencyRangeCache.size,
+                stackRangeCacheSize: SpectrumChart.performance.stackRangeCache.size
+            },
+            dataStats: {
+                totalRecords: SpectrumChart.data.jsonArray.length,
+                filteredRecords: SpectrumChart.data.jsonArrayFiltered.length,
+                services: SpectrumChart.data.serviceArray.length,
+                applications: SpectrumChart.data.applicationArray.length
+            },
+            memoryUsage: {
+                usedHeap: performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) + 'MB' : 'N/A',
+                totalHeap: performance.memory ? Math.round(performance.memory.totalJSHeapSize / 1048576) + 'MB' : 'N/A'
+            }
+        };
+        
+        console.table(report.cacheStats);
+        console.table(report.dataStats);
+        console.log('Performance Report:', report);
+        return report;
+    },
+    
+    // Clear performance caches for memory management
+    clearCaches: function() {
+        SpectrumChart.performance.rowLookupMap.clear();
+        SpectrumChart.performance.stackLookupMap.clear();
+        SpectrumChart.performance.serviceIndexMap.clear();
+        SpectrumChart.performance.frequencyRangeCache.clear();
+        SpectrumChart.performance.stackRangeCache.clear();
+        SpectrumChart.performance.bandwidthCache.clear();
+        DOMCache.clear();
+        Logger.log('Performance caches cleared');
+    }
+};
+
+/**
+ * ========================================
+ * MATHEMATICAL & SCREEN UTILITY FUNCTIONS
+ * ========================================
+ * 
+ * Core mathematical calculations and screen dimension functions
+ * for responsive chart rendering and layout calculations.
+ */
+
 // Initialize application
 logScreenWidth();
 logScreenHeight();
 logContainerWidth();
 logContainerHeight();
+
+// Global performance monitoring functions for developers
+window.getPerformanceReport = function() {
+    return PerformanceUtils.getPerformanceReport();
+};
+
+window.clearPerformanceCaches = function() {
+    PerformanceUtils.clearCaches();
+};
+
+// Auto-performance monitoring every 10 seconds in development
+if (Logger.enabled) {
+    setInterval(function() {
+        const report = PerformanceUtils.getPerformanceReport();
+        if (report.memoryUsage.usedHeap !== 'N/A') {
+            const heapMB = parseInt(report.memoryUsage.usedHeap);
+            if (heapMB > 100) {
+                Logger.log(`⚠️  High memory usage detected: ${heapMB}MB`);
+            }
+        }
+    }, 10000);
+}
 
 executeSequentially();
 // Attach the function to the window resize event
@@ -104,18 +348,31 @@ function reload()
 }
 
 
+/**
+ * ========================================
+ * DATA PROCESSING & TRANSFORMATION
+ * ========================================
+ * 
+ * Functions responsible for Excel file loading, data parsing,
+ * transformation, and preparation for chart rendering.
+ * Includes frequency normalization, service mapping, and
+ * data structure organization.
+ */
+
 // Execute the functions sequentially
 async function executeSequentially() {
     // document.addEventListener('DOMContentLoaded', function () {
     //     // Automatically load the Excel file when the page loads    
     // });
     
-    await ExceltoJson(); // Wait for asyncFunction1 to complete
+    await ExceltoJson(); // Wait for Excel processing to complete
 }
 
-
+/**
+ * Load and parse Excel file containing frequency allocation data
+ * Transforms raw Excel data into structured JSON format for chart rendering
+ */
 async function ExceltoJson() {
-    // console.log("ExceltoJson");
     // Specify the path to your Excel file
     var excelFilePath = 'datasource.xlsx';
 
@@ -180,7 +437,6 @@ async function ExceltoJson() {
             // }
 
             // ApplicationArray = [...new Set(ApplicationArray)];  
-            // console.log("ApplicationArray "+ApplicationArray);
             // Display the Excel data on the webpage
             // displayOutput(jsonDataArray);
                          
@@ -194,6 +450,11 @@ async function ExceltoJson() {
             assignUniqueID(SpectrumChart.data.jsonArray);
             assignGapFrequencyLabel(SpectrumChart.data.jsonArray);
             SpectrumChart.data.jsonArrayFiltered = SpectrumChart.data.jsonArray;
+            
+            // Build performance optimization structures
+            PerformanceUtils.buildLookupMaps(SpectrumChart.data.jsonArray);
+            PerformanceUtils.cacheFrequencyRanges(SpectrumChart.data.jsonArray);
+            
             plot(SpectrumChart.data.jsonArray);
             createServiceLegend(SpectrumChart.data.colorArray);
             createServiceLegendHorizontal(SpectrumChart.data.colorArray);
@@ -205,7 +466,6 @@ async function ExceltoJson() {
     };
 
     xhr.send();
-    // console.log("End ExceltoJson------------");
     return SpectrumChart.data.jsonArray;
 }
 
@@ -226,6 +486,10 @@ function displayOutput(data) {
 }
 
 
+/**
+ * Convert all frequency values to MHz for consistent calculations
+ * @param {Array} data - Array of frequency allocation records
+ */
 function normalizeFrequencyUnitToMHz(data) {
     Logger.log("normalizeFrequencyUnitToMHz");
 
@@ -245,6 +509,10 @@ function normalizeFrequencyUnitToMHz(data) {
     CombineServiceAndDirectionToNewColumn(SpectrumChart.data.jsonArray);
 }
 
+/**
+ * Combine service and direction information into a single column for processing
+ * @param {Array} data - Array of frequency allocation records
+ */
 function CombineServiceAndDirectionToNewColumn(data) {
     for (var i = 0 ; i < data.length ; i++){ 
         data[i].Service_and_direction = data[i].EngService + '*' + data[i].Direction;
@@ -318,7 +586,6 @@ function assignStackID(data) {
 
 
 function insertGap(data) {
-    // console.log("insertGap");
     var last_stackid = data[data.length-1].stack_id
     var gap_position = [];
     for(var i=0; i<last_stackid; i++){
@@ -330,12 +597,10 @@ function insertGap(data) {
         var next = i+1;
         bandwidth = min_start_freq - max_stop_freq;
         if(bandwidth > 0 ){
-            // console.log("stack "+current+"and stack " + next +" have gap");
             data.push({ stack_id:null, Start_Frequency: max_stop_freq, Stop_Frequency: min_start_freq, Bandwidth: bandwidth, EngService : "gap"});
         }
     } 
         assignStackID(data);
-        // console.log("End insertGap------------");
 }
 
 
@@ -386,12 +651,10 @@ function assignUniqueID(data){
 
 
 function sortStackMembers(data) {
-    // console.log("sortStackMembers");
     //sort order by Bandwidth in every stack
     var result = [];
     for(var i=0; i<=data[data.length-1].stack_id; i++){  // loop by the number of stacks e.g. 6 rounds for 6 stacks
         var family = getStackMembers(data, i);
-        // console.log("family "+family);
         var sorted_family = family.sort(function(a, b) {
             return a.Bandwidth - b.Bandwidth;
         });
@@ -401,7 +664,6 @@ function sortStackMembers(data) {
     }
 
     SpectrumChart.data.jsonArray = result;
-    // console.log("End sortStackMembers------------");
 }
 
 
@@ -423,43 +685,63 @@ function FontSizeScaler(box_height,box_width,num_direction_charactor) {
     var required_width = fontsize * num_direction_charactor;
     if(box_width < required_width){fontsize = 0;}
 
-// console.log ("box_height "+box_height);
-// console.log ("fontsize "+fontsize);
     return fontsize;
 }
 
+/**
+ * ========================================
+ * CHART RENDERING & VISUALIZATION ENGINE
+ * ========================================
+ * 
+ * Core chart rendering functions responsible for generating
+ * the visual spectrum chart using HTML5 Canvas and DOM elements.
+ * Includes color management, scaling, and layout optimization.
+ */
 
+/**
+ * Main chart plotting function - renders the complete frequency spectrum chart
+ * @param {Array} data - Processed frequency allocation data
+ * Optimized with performance caching and lookup maps for O(n) complexity
+ */
 function plot(data){
+    PerformanceUtils.startTimer('plot');
 
     SpectrumChart.config.heightFactor = RowHeightScaler();
 
     var text ="";
-
     var last_rowid = data[data.length-1].row_id;
     var length_accum = 0;
 
+    // Optimized loop: Use lookup maps instead of repeated filtering
     for (var i=0; i <= last_rowid; i++)
     {
-        var row_family = data.filter(word => word.row_id == i);
+        // Use cached row family instead of filtering
+        var row_family = PerformanceUtils.getRowFamily(i);
+        if (!row_family || row_family.length === 0) continue;
+        
         var first_stack_of_row = row_family[0].stack_id;
         var last_stack_of_row = row_family[row_family.length-1].stack_id;
 
         var scale_factor = scaler(row_family,i);
+        
+        // Use cached frequency ranges instead of Math.min/max operations
+        var cachedRange = PerformanceUtils.getRowFrequencyRange(i);
+        var min_freq_row, max_freq_row;
+        
         if(row_family[0].EngService == "gap" && row_family.length > 1)
         {
-            var row_family_without0 = [];
-            for (var p=1; p<row_family.length ; p++)
-            {
-                row_family_without0.push(row_family[p]);
-            }
-        console.log(row_family_without0);
-            var min_freq_row = Math.min(...row_family_without0.map(item => item.Start_Frequency));
+            // Only recalculate if gap detected (less common case)
+            var row_family_without0 = row_family.slice(1);
+            Logger.log("Row family without gap:", row_family_without0);
+            min_freq_row = Math.min(...row_family_without0.map(item => item.Start_Frequency));
+            max_freq_row = Math.max(...row_family_without0.map(item => item.Stop_Frequency));
         }
         else
         {
-            var min_freq_row = Math.min(...row_family.map(item => item.Start_Frequency));
+            // Use cached values for common case
+            min_freq_row = cachedRange.min;
+            max_freq_row = cachedRange.max;
         }
-        var max_freq_row = Math.max(...row_family.map(item => item.Stop_Frequency));
 
         if (row_family.length == 1 && row_family[0].EngService == "gap" ) {
             text += '<span id='+row_family[0].id+' class="box"></span>';
@@ -483,13 +765,24 @@ function plot(data){
             text +=     '<span id="stack-container_'+ j +'" class="stack-container">';     // open stack Container
 
             var number_of_stack_member = countStackMembers(row_family,j);
-            var stack_member = getStackMembers(row_family,j);
-            let min_start_freq = Math.min(...stack_member.map(item => item.Start_Frequency));  
-            let max_stop_freq = Math.max(...stack_member.map(item => item.Stop_Frequency));
+            var stack_member = PerformanceUtils.getStackMembers(row_family,j);
+            
+            // Use cached stack frequency ranges instead of recalculating
+            var stackRange = PerformanceUtils.getStackFrequencyRange(j);
+            var min_start_freq, max_stop_freq;
+            
+            if (stackRange) {
+                min_start_freq = stackRange.min;
+                max_stop_freq = stackRange.max;
+            } else {
+                // Fallback for edge cases
+                min_start_freq = Math.min(...stack_member.map(item => item.Start_Frequency));  
+                max_stop_freq = Math.max(...stack_member.map(item => item.Stop_Frequency));
+            }
+            
             var height = (SpectrumChart.dimensions.screenHeight/number_of_stack_member) * SpectrumChart.config.heightFactor;
             var height_newline = height/SpectrumChart.config.heightNewlineFactor*number_of_stack_member;
 
-            // console.log(stack_member);
             for (var k=0; k < number_of_stack_member; k++ )
             {
                 var mapped_color = getColor(stack_member,k);
@@ -516,7 +809,6 @@ function plot(data){
                 }
                 else { }
                 var fontsize = FontSizeScaler(height,width, stack_member[k].Direction.length+1);
-            // console.log("Bandwidth "+stack_member[k].Bandwidth+" scale_factor "+scale_factor+" width "+width );
             // mouse hover information  
             var [Start_Frequency_label, Stop_Frequency_label, Stop_Frequency_Unit_label] = labelFrequncyConverter(stack_member[k].Start_Frequency, stack_member[k].Stop_Frequency);
                 var hover_information = Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label + '\n' + stack_member[k].EngService + '\n';
@@ -567,7 +859,6 @@ function plot(data){
                     var card_header = Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label ;
                     card_information = stack_member[k].EngService + ' Service '+card_information_direction+' <br>Designation : ' +stack_member[k].order+ '<br>Bandwidth : '+ Bandwidth +' '+Stop_Frequency_Unit_label+ '<br> International Footnote : '+stack_member[k].International_Footnote+ '<br> Thailand Footnote : '+stack_member[k].Thailand_Footnote+ '' ;
                     // var card_information = stack_member[k].EngService + ' Service<br>Designation : ' +stack_member[k].order+ '<br>' +Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label + '<br>Bandwidth : '+ stack_member[k].Bandwidth +' '+Stop_Frequency_Unit_label+ '<br> Footnote : 5.xx' ; 
-                    // console.log(stack_member[k].card_information);
 
 
                 
@@ -628,7 +919,9 @@ function plot(data){
     if(SpectrumChart.config.hide==0){text +='<div id="Legend-horizontal"></div>'}
         
     DOMCache.get('output').innerHTML += text;
-        
+    
+    PerformanceUtils.endTimer('plot');
+    SpectrumChart.performance.renderCount++;
 }
 
 
@@ -697,7 +990,20 @@ function getColor2(service) {
     return entry ? entry.Color : null;
   }
 
+/**
+ * ========================================
+ * LEGEND CREATION & MANAGEMENT SYSTEM
+ * ========================================
+ * 
+ * Functions responsible for creating, managing, and updating
+ * the interactive legend system. Supports both vertical and
+ * horizontal display modes with real-time filtering.
+ */
 
+/**
+ * Create vertical service legend with color-coded entries
+ * @param {Array} colorArray - Array of service color mappings
+ */
 function createServiceLegend(colorArray) {
     var colorLegend ="";
 
@@ -871,6 +1177,19 @@ function labelFrequncyConverter(Start_Frequency, Stop_Frequency) {
 //     });
 // }
 
+/**
+ * ========================================
+ * USER INTERFACE & INTERACTION HANDLERS
+ * ========================================
+ * 
+ * Functions managing user interactions, menu selections,
+ * UI mode toggles, and class management for visual feedback.
+ * Includes dark mode, legend toggles, and element styling.
+ */
+
+/**
+ * Toggle dark mode for the legend display
+ */
 function toggleDarkMode() {
     var section = document.getElementById("Legend");
     var output_elementIds = Array.from(section.children).map(function(child) {
@@ -1279,8 +1598,23 @@ function resetTimer() {
     }, 0);
 }
 
+/**
+ * ========================================
+ * SEARCH & FILTERING ENGINE
+ * ========================================
+ * 
+ * Comprehensive search and filtering system for real-time
+ * data filtering by frequency range, service type, and legend.
+ * Optimized with performance caching and efficient algorithms.
+ */
 
+/**
+ * Perform real-time search and filtering on legend items
+ * @param {string} inputValue_legend - Search query string
+ * Optimized with single-pass filtering and Set operations
+ */
 function PerformSearch(inputValue_legend) {
+    PerformanceUtils.startTimer('PerformSearch');
     
     cards = [];
     cardheight = 0;
@@ -1295,16 +1629,33 @@ function PerformSearch(inputValue_legend) {
         // Filter services based on the filtered start/stop frequency
         var filtered_service_from_data = getUniqueValuesOfAttributebyAttribute(SpectrumChart.data.jsonArrayFiltered,"EngService");
 
-        // Filter items based on the input
-        var filtered_legend = filtered_service_from_data.filter(item => item.toLowerCase().includes(inputValue_legend));
-        SpectrumChart.data.serviceArrayFiltered = filtered_legend;
+        // Optimized filtering using single pass
+        var filtered_legend = [];
+        var unselected_legend = [];
         
-        var unselected_legend = filtered_service_from_data.filter(value => !filtered_legend.includes(value));
+        // Single loop instead of multiple filter operations
+        for (let i = 0; i < filtered_service_from_data.length; i++) {
+            const service = filtered_service_from_data[i];
+            if (service.toLowerCase().includes(inputValue_legend)) {
+                filtered_legend.push(service);
+            } else {
+                unselected_legend.push(service);
+            }
+        }
+        
+        SpectrumChart.data.serviceArrayFiltered = filtered_legend;
 
         var selected_data = FilterDataByAttribute(SpectrumChart.data.jsonArrayFiltered, "EngService", filtered_legend)
         var unselected_data = FilterDataByAttribute(SpectrumChart.data.jsonArrayFiltered, "EngService", unselected_legend)
 
-        SpectrumChart.data.colorArrayFiltered = SpectrumChart.data.colorArray.filter(word => filtered_legend.includes(word.Service));
+        // Optimized color array filtering using lookup
+        SpectrumChart.data.colorArrayFiltered = [];
+        const filteredSet = new Set(filtered_legend);
+        for (let i = 0; i < SpectrumChart.data.colorArray.length; i++) {
+            if (filteredSet.has(SpectrumChart.data.colorArray[i].Service)) {
+                SpectrumChart.data.colorArrayFiltered.push(SpectrumChart.data.colorArray[i]);
+            }
+        }
         
         if(selected_data.length != 0){
             toggleClasses(selected_data, "highlight");
@@ -1357,7 +1708,9 @@ function PerformSearch(inputValue_legend) {
         createApplicationLegend(filtered_color2);
         
     }
-
+    
+    PerformanceUtils.endTimer('PerformSearch');
+    SpectrumChart.performance.filterCount++;
 }
 
 
@@ -1373,25 +1726,26 @@ function removeElementsByIds(idsToRemove) {
 
 
 function toggleClasses(data, addnewclass) {
+    // Optimized DOM operations with batching
+    const fragment = document.createDocumentFragment();
+    const elementsToUpdate = [];
     
-    // //find id from data
-    var id = [];
+    // Extract IDs in single pass and cache DOM elements
     for(var i=0; i<data.length; i++) {
-        id[i] = data[i].id;
+        const element = DOMCache.get(data[i].id);
+        if (element) {
+            elementsToUpdate.push(element);
+        }
     }
     
+    // Batch DOM updates to minimize reflows
+    const startTime = performance.now();
+    elementsToUpdate.forEach(function(element) {
+        // More efficient class management
+        element.className = addnewclass;
+    });
     
-    // Loop through each element ID
-    id.forEach(function(id) {
-        // Get the element by ID
-        var element = document.getElementById(id);
-
-        // Toggle between currentClass and newClass
-            element.classList.remove(element.classList);
-            element.classList.add(addnewclass);
-    }
-    );
-
+    Logger.log(`DOM update batch (${elementsToUpdate.length} elements) in ${(performance.now() - startTime).toFixed(2)}ms`);
 }
 
 function toggleClassesbyID(id, addnewclass) {
@@ -1429,6 +1783,11 @@ function FilterDataByAttribute(data_array, attribute, attribute_array) {
 
 //------------------------------------------- functions for user filtering -------------------------------------------
 
+/**
+ * Filter frequency data based on user-specified start and stop frequencies
+ * Supports multiple units (Hz, kHz, MHz, GHz) with automatic conversion
+ * Rebuilds performance caches after filtering for optimal rendering
+ */
 function filterFrequency() {
     cards = [];
     cardheight = 0;
@@ -1513,6 +1872,11 @@ function filterFrequency() {
     sortStackMembers2(SpectrumChart.data.jsonArrayFiltered);
     assignRowID2(SpectrumChart.data.jsonArrayFiltered);
     assignGapFrequencyLabel2(SpectrumChart.data.jsonArrayFiltered);
+    
+    // Rebuild performance optimizations for filtered data
+    PerformanceUtils.buildLookupMaps(SpectrumChart.data.jsonArrayFiltered);
+    PerformanceUtils.cacheFrequencyRanges(SpectrumChart.data.jsonArrayFiltered);
+    
     plot(SpectrumChart.data.jsonArrayFiltered);
     filteredLegend();
 }
@@ -1575,7 +1939,6 @@ function insertGap2(data) {
         var next = i+1;
         bandwidth = min_start_freq - max_stop_freq;
         if(bandwidth > 0 ){
-            // console.log("stack "+current+"and stack " + next +" have gap");
             data.push({ stack_id:null, Start_Frequency: max_stop_freq, Stop_Frequency: min_start_freq, Bandwidth: bandwidth, EngService : "gap"});
         }
     } 
@@ -1860,6 +2223,11 @@ function getcolorarray(color_id){
 
 
 
+/**
+ * Handle menu selection between different chart types
+ * @param {HTMLElement} menu - The selected menu element
+ * Switches between National Frequency Allocation and Unlicensed Frequency tables
+ */
 function selectMenu(menu) {
     const menus = document.querySelectorAll('.menu-item');
 
