@@ -1,42 +1,89 @@
-// Declare Global variables
-var SelectedMenu = "nfat";
-var height_factor = 0.07;        // set factor to X % of screen height   / the bigger number, the taller blocks
-var height_newline_factor = 10;  // the bigger number, the smaller newline
-var label_font_size = 10; // in pixel unit / default is 12
-var hide = 1;
+// Spectrum Chart Application Namespace
+const SpectrumChart = {
+    // Configuration settings
+    config: {
+        selectedMenu: "nfat",
+        heightFactor: 0.07,        // set factor to X % of screen height / the bigger number, the taller blocks
+        heightNewlineFactor: 10,   // the bigger number, the smaller newline
+        labelFontSize: 10,         // in pixel unit / default is 12
+        hide: 1
+    },
+    
+    // Screen and container dimensions
+    dimensions: {
+        screenWidth: 0,
+        screenHeight: 0,
+        containerWidth: 0,
+        containerHeight: 0
+    },
+    
+    // Data arrays
+    data: {
+        jsonArray: [],
+        colorArray: [],
+        colorArrayFiltered: [],
+        colorArrayApplication: [],
+        colorArrayApplicationFiltered: [],
+        serviceArray: [],
+        applicationArray: [],
+        applicationArrayFiltered: [],
+        serviceArrayFiltered: [],
+        frequencyLabelArray: [],
+        jsonArrayFiltered: []
+    },
+    
+    // Legend state management
+    legend: {
+        selected: [],
+        selectedTemp: [],
+        selectedDirection: [],
+        unselected: [],
+        inputValue: "",
+        toggleMode: "service"
+    },
+    
+    // UI state
+    ui: {
+        selectedDataIdBox: [],
+        unselectedDataIdBox: []
+    },
+    
+    // Sheet indices
+    sheets: {
+        index0: 0,
+        index1: 1,
+        index2: 2
+    }
+};
 
-var screenWidth = 0;
-var screenHeight = 0;
-var containerWidth = 0;
-var containerHeight = 0;
+// DOM Element Cache for performance
+const DOMCache = {
+    elements: {},
+    get: function(id) {
+        if (!this.elements[id]) {
+            this.elements[id] = document.getElementById(id);
+        }
+        return this.elements[id];
+    },
+    clear: function() {
+        this.elements = {};
+    }
+};
 
-var jsonDataArray = [];
-var colorArray = [];
-var colorArray_filtered = [];
-var colorArray_application = [];
-var colorArray_application_filtered = [];
-var ServiceArray = [];
-var ApplicationArray = [];
-var ApplicationArray_filtered = [];
-var ServiceArray_filtered = [];
-var frequencyLabelArray = [];
-var jsonDataArray_filtered = [];
+// Conditional logging system
+const Logger = {
+    enabled: true, // Set to true for development
+    log: function(...args) {
+        if (this.enabled) {
+            console.log(...args);
+        }
+    },
+    error: function(...args) {
+        console.error(...args); // Always log errors
+    }
+};
 
-var SelectedLegend = [];
-var SelectedLegend_tmp = [];
-var SelectedLegendDirection = [];
-var unselected_legend = [];
-
-var inputValue_legend = "";
-var selected_data_id_box = [];      //global
-var unselected_data_id_box = [];    //global
-var ToggleLegend = "service";
-
-var sheet_index0 = 0;
-var sheet_index1 = 1;
-var sheet_index2 = 2;
-
-// Call the function on page load
+// Initialize application
 logScreenWidth();
 logScreenHeight();
 logContainerWidth();
@@ -78,17 +125,17 @@ async function ExceltoJson() {
     xhr.responseType = 'arraybuffer';
 
 
-    jsonDataArray = [];
-    colorArray = [];
-    colorArray_filtered = [];
-    colorArray_application = [];
-    colorArray_application_filtered = [];
-    ServiceArray = [];
-    ApplicationArray = [];
-    ApplicationArray_filtered = [];
-    ServiceArray_filtered = [];
-    frequencyLabelArray = [];
-    jsonDataArray_filtered = [];
+    SpectrumChart.data.jsonArray = [];
+    SpectrumChart.data.colorArray = [];
+    SpectrumChart.data.colorArrayFiltered = [];
+    SpectrumChart.data.colorArrayApplication = [];
+    SpectrumChart.data.colorArrayApplicationFiltered = [];
+    SpectrumChart.data.serviceArray = [];
+    SpectrumChart.data.applicationArray = [];
+    SpectrumChart.data.applicationArrayFiltered = [];
+    SpectrumChart.data.serviceArrayFiltered = [];
+    SpectrumChart.data.frequencyLabelArray = [];
+    SpectrumChart.data.jsonArrayFiltered = [];
 
 
     xhr.onload = function () {
@@ -97,35 +144,35 @@ async function ExceltoJson() {
             var workbook = XLSX.read(data, { type: 'array' });
 
             // Convert Sheet1 to JSON and store in the array
-            var sheet1_name_list = workbook.SheetNames[sheet_index0];
+            var sheet1_name_list = workbook.SheetNames[SpectrumChart.sheets.index0];
             var sheet1 = XLSX.utils.sheet_to_json(workbook.Sheets[sheet1_name_list]);
 
             // Convert Sheet2 to JSON and store in the array
-            var sheet2_name_list = workbook.SheetNames[sheet_index1];
+            var sheet2_name_list = workbook.SheetNames[SpectrumChart.sheets.index1];
             var sheet2 = XLSX.utils.sheet_to_json(workbook.Sheets[sheet2_name_list]);
 
             // Convert Sheet3 to JSON and store in the array
-            var sheet3_name_list = workbook.SheetNames[sheet_index2];
+            var sheet3_name_list = workbook.SheetNames[SpectrumChart.sheets.index2];
             var sheet3 = XLSX.utils.sheet_to_json(workbook.Sheets[sheet3_name_list]);
 
 
-            // Store the JSON data in the array
-            colorArray = sheet2;
-            colorArray_filtered = colorArray;
-            colorArray_application = sheet3;
-            colorArray_application_filtered = colorArray_application;
-            // console.log("ApplicationArray "+ApplicationArray);
+            // Store the JSON data in the namespace
+            SpectrumChart.data.colorArray = sheet2;
+            SpectrumChart.data.colorArrayFiltered = SpectrumChart.data.colorArray;
+            SpectrumChart.data.colorArrayApplication = sheet3;
+            SpectrumChart.data.colorArrayApplicationFiltered = SpectrumChart.data.colorArrayApplication;
+            Logger.log("ApplicationArray ", SpectrumChart.data.applicationArray);
             for(var i=0; i<sheet1.length; i++){
-                jsonDataArray[i] = sheet1[i];
-                if (jsonDataArray[i].Application == undefined)  { jsonDataArray[i].Application = "x"; }
+                SpectrumChart.data.jsonArray[i] = sheet1[i];
+                if (SpectrumChart.data.jsonArray[i].Application == undefined)  { SpectrumChart.data.jsonArray[i].Application = "x"; }
             }
 
-            for(var i=0; i<colorArray.length; i++){
-                ServiceArray[i] = colorArray[i].Service;
+            for(var i=0; i<SpectrumChart.data.colorArray.length; i++){
+                SpectrumChart.data.serviceArray[i] = SpectrumChart.data.colorArray[i].Service;
             }
 
-            for(var i=0; i<colorArray_application.length; i++){
-                ApplicationArray[i] = colorArray_application[i].Application;
+            for(var i=0; i<SpectrumChart.data.colorArrayApplication.length; i++){
+                SpectrumChart.data.applicationArray[i] = SpectrumChart.data.colorArrayApplication[i].Application;
             }
 
             // for (var i=0; i<jsonDataArray.length; i++){
@@ -138,28 +185,28 @@ async function ExceltoJson() {
             // displayOutput(jsonDataArray);
                          
             // Call a function after the data is loaded
-            normalizeFrequencyUnitToMHz(jsonDataArray);
-            assignStackID(jsonDataArray); // done
-            insertGap(jsonDataArray); //done
-            splitTextToArray(jsonDataArray);
-            sortStackMembers(jsonDataArray);
-            assignRowID(jsonDataArray);
-            assignUniqueID(jsonDataArray);
-            assignGapFrequencyLabel(jsonDataArray);
-            jsonDataArray_filtered = jsonDataArray;
-            plot(jsonDataArray);
-            createServiceLegend(colorArray);
-            createServiceLegendHorizontal(colorArray);
-            console.log(jsonDataArray);
+            normalizeFrequencyUnitToMHz(SpectrumChart.data.jsonArray);
+            assignStackID(SpectrumChart.data.jsonArray);
+            insertGap(SpectrumChart.data.jsonArray);
+            splitTextToArray(SpectrumChart.data.jsonArray);
+            sortStackMembers(SpectrumChart.data.jsonArray);
+            assignRowID(SpectrumChart.data.jsonArray);
+            assignUniqueID(SpectrumChart.data.jsonArray);
+            assignGapFrequencyLabel(SpectrumChart.data.jsonArray);
+            SpectrumChart.data.jsonArrayFiltered = SpectrumChart.data.jsonArray;
+            plot(SpectrumChart.data.jsonArray);
+            createServiceLegend(SpectrumChart.data.colorArray);
+            createServiceLegendHorizontal(SpectrumChart.data.colorArray);
+            Logger.log(SpectrumChart.data.jsonArray);
 
         } else {
-            console.error('Failed to load Excel file:', xhr.statusText);
+            Logger.error('Failed to load Excel file:', xhr.statusText);
         }
     };
 
     xhr.send();
     // console.log("End ExceltoJson------------");
-    return jsonDataArray;
+    return SpectrumChart.data.jsonArray;
 }
 
 
@@ -180,7 +227,7 @@ function displayOutput(data) {
 
 
 function normalizeFrequencyUnitToMHz(data) {
-    // console.log("normalizeFrequencyUnitToMHz");
+    Logger.log("normalizeFrequencyUnitToMHz");
 
     for (var i = 0 ; i < data.length ; i++){ 
         //normalize freq unit
@@ -193,22 +240,21 @@ function normalizeFrequencyUnitToMHz(data) {
     
         data[i].Bandwidth = data[i].Stop_Frequency - data[i].Start_Frequency;
     }
-    jsonDataArray = data;
-    // console.log("end normalizeFrequencyUnitToMHz -----");
-    CombineServiceAndDirectionToNewColumn(jsonDataArray);
-    // console.log(jsonDataArray);
+    SpectrumChart.data.jsonArray = data;
+    Logger.log("end normalizeFrequencyUnitToMHz");
+    CombineServiceAndDirectionToNewColumn(SpectrumChart.data.jsonArray);
 }
 
 function CombineServiceAndDirectionToNewColumn(data) {
     for (var i = 0 ; i < data.length ; i++){ 
         data[i].Service_and_direction = data[i].EngService + '*' + data[i].Direction;
     }
-    jsonDataArray = data;
+    SpectrumChart.data.jsonArray = data;
 }
 
 
 function splitTextToArray(data) {
-    // console.log("splitTextToArray");
+    Logger.log("splitTextToArray");
 
     for (var i = 0 ; i < data.length ; i++){
         var text = data[i].Direction;
@@ -226,22 +272,21 @@ function splitTextToArray(data) {
             data[i].International_Footnote = [];
         }
     }
-    jsonDataArray = data;
-    // console.log("end splitTextToArray -----");
+    SpectrumChart.data.jsonArray = data;
+    Logger.log("end splitTextToArray");
 }
 
 
 
 function assignStackID(data) {
-    // console.log("assignStackID");
+    Logger.log("assignStackID");
 
     //sort order by start frequency
     var sorted_data = data.sort(function(a, b) {
         return a.Start_Frequency - b.Start_Frequency;
     });
 
-    // console.log("sorted_data len = " + sorted_data.length);
-    // displayOutput(sorted_data[0]);
+    Logger.log("sorted_data len = " + sorted_data.length);
     var stack_id = 0;
     var last_max_stopfreq = sorted_data[0].Stop_Frequency ;
     sorted_data[0].stack_id = stack_id;
@@ -267,11 +312,8 @@ function assignStackID(data) {
         sorted_data[i].last_max_stopfreq = last_max_stopfreq;
     }
 
-    jsonDataArray = sorted_data;
-    // jsonDataArray_filtered = sorted_data;
-    // displayOutput(jsonDataArray_sorted_data);
-    // console.log("assignStackID :" + jsonDataArray);
-    // console.log("End assignStackID------------");
+    SpectrumChart.data.jsonArray = sorted_data;
+    Logger.log("End assignStackID");
 }
 
 
@@ -327,7 +369,7 @@ function assignRowID(data) {
         length_accum += number_of_stack_member;
     }
     
-    jsonDataArray = data;                               //return to global data array
+    SpectrumChart.data.jsonArray = data;                               //return to global data array
     // jsonDataArray_filtered = data;
 
 }
@@ -338,8 +380,8 @@ function assignUniqueID(data){
     for(var i=0; i<data.length; i++){
         data[i].id = i;
     }
-    jsonDataArray = data;
-    jsonDataArray_filtered = data;
+    SpectrumChart.data.jsonArray = data;
+    SpectrumChart.data.jsonArrayFiltered = data;
 }
 
 
@@ -358,19 +400,18 @@ function sortStackMembers(data) {
         }   
     }
 
-    jsonDataArray = result;
-    // jsonDataArray_filtered = result;
+    SpectrumChart.data.jsonArray = result;
     // console.log("End sortStackMembers------------");
 }
 
 
 function RowHeightScaler() {
-    var row_num = jsonDataArray_filtered[jsonDataArray_filtered.length-1].row_id + 1;
+    var row_num = SpectrumChart.data.jsonArrayFiltered[SpectrumChart.data.jsonArrayFiltered.length-1].row_id + 1;
     var factor = 0.25 / row_num;
     if (factor > 0.125) { factor = 0.125; }
     if (factor < 0.07) { factor = 0.07; }
 
-    // console.log("factor "+factor);
+    Logger.log("factor "+factor);
     return factor;
 }
 
@@ -390,7 +431,7 @@ function FontSizeScaler(box_height,box_width,num_direction_charactor) {
 
 function plot(data){
 
-    height_factor = RowHeightScaler();
+    SpectrumChart.config.heightFactor = RowHeightScaler();
 
     var text ="";
 
@@ -429,7 +470,7 @@ function plot(data){
         text += '<h6 id="headline'+i+'">' + Start_Frequency_label + ' - ' + Stop_Frequency_label + ' ' + Stop_Frequency_Unit_label + '</h6>';
 
         // open new mainContainer for each row
-        text += '<span id="mainContainer_'+i+'" class="main-container" style="width:'+containerWidth+'px;">'; 
+        text += '<span id="mainContainer_'+i+'" class="main-container" style="width:'+SpectrumChart.dimensions.containerWidth+'px;">'; 
 
         for (var j=first_stack_of_row ; j<=last_stack_of_row ; j++)
         {
@@ -445,8 +486,8 @@ function plot(data){
             var stack_member = getStackMembers(row_family,j);
             let min_start_freq = Math.min(...stack_member.map(item => item.Start_Frequency));  
             let max_stop_freq = Math.max(...stack_member.map(item => item.Stop_Frequency));
-            var height = (screenHeight/number_of_stack_member) * height_factor;
-            var height_newline = height/height_newline_factor*number_of_stack_member;
+            var height = (SpectrumChart.dimensions.screenHeight/number_of_stack_member) * SpectrumChart.config.heightFactor;
+            var height_newline = height/SpectrumChart.config.heightNewlineFactor*number_of_stack_member;
 
             // console.log(stack_member);
             for (var k=0; k < number_of_stack_member; k++ )
@@ -553,13 +594,13 @@ function plot(data){
 
         var label_length_ref = 0;
         var label_flag = "yes" // yes = plotted label in previous loop , no = didn't plot in previous loop
-        for (var l=0; l<frequencyLabelArray[i].length; l++ )
+        for (var l=0; l<SpectrumChart.data.frequencyLabelArray[i].length; l++ )
         {
-            label_font_size = 10; // in pixel unit / default is 12
-            var label_width = label_font_size * 1.5 ;
+            SpectrumChart.config.labelFontSize = 10; // in pixel unit / default is 12
+            var label_width = SpectrumChart.config.labelFontSize * 1.5 ;
 
-            var this_freq_label = frequencyLabelArray[i][l];
-            var last_freq_label = frequencyLabelArray[i][frequencyLabelArray[i].length - 1];
+            var this_freq_label = SpectrumChart.data.frequencyLabelArray[i][l];
+            var last_freq_label = SpectrumChart.data.frequencyLabelArray[i][SpectrumChart.data.frequencyLabelArray[i].length - 1];
             var [this_shown_label, last_shown_label, Stop_shown_Unit_label] = labelFrequncyConverter(this_freq_label, last_freq_label);
             shown_label = this_shown_label;
 
@@ -584,9 +625,9 @@ function plot(data){
         text += '<span id="newline-container" class="newline-container" style="height:'+height_newline+'px;"> </span>'; //insert new line
 
     } // end of row-loop
-    if(hide==0){text +='<div id="Legend-horizontal"></div>'}
+    if(SpectrumChart.config.hide==0){text +='<div id="Legend-horizontal"></div>'}
         
-    $('#output').append(text);
+    DOMCache.get('output').innerHTML += text;
         
 }
 
@@ -619,7 +660,7 @@ function scaler(data,row_id) {
 
     // if (sum_bandwidth == 0) {sum_bandwidth = 0.135; } // prevent Infinity
     
-    var scale_factor = parseFloat(containerWidth/sum_bandwidth); // set factor
+    var scale_factor = parseFloat(SpectrumChart.dimensions.containerWidth/sum_bandwidth); // set factor
 
     return scale_factor;
 }
@@ -652,7 +693,7 @@ const result = Array.from(resultMap.values()).map(item => ({
 }
 
 function getColor2(service) {
-    const entry = colorArray.find(entry => entry.Service === service);
+    const entry = SpectrumChart.data.colorArray.find(entry => entry.Service === service);
     return entry ? entry.Color : null;
   }
 
@@ -662,10 +703,10 @@ function createServiceLegend(colorArray) {
 
     var data_legend = [];
 
-    for (var i=0; i<jsonDataArray_filtered.length; i++) {
+    for (var i=0; i<SpectrumChart.data.jsonArrayFiltered.length; i++) {
         data_legend[i] = {};
-        data_legend[i].Service = jsonDataArray_filtered[i].EngService;
-        data_legend[i].Direction = jsonDataArray_filtered[i].Direction;
+        data_legend[i].Service = SpectrumChart.data.jsonArrayFiltered[i].EngService;
+        data_legend[i].Direction = SpectrumChart.data.jsonArrayFiltered[i].Direction;
     }
     var grouped_legend = GroupAndRemoveDupplicate(data_legend);
     grouped_legend = leftJoin(colorArray, grouped_legend, 'Service', 'Service');
@@ -691,7 +732,7 @@ function createServiceLegend(colorArray) {
         colorLegend+= '</span>';
         // colorLegend+= '<p id="'+colorArray[i].Service+'" onclick="onclickLegend(this)" class="legend" style="margin-bottom: 0px;cursor:default;"><span style="color: '+colorArray[i].Color+'; font-size: 20px;">&#x2B23;></span><span>'+colorArray[i].Service+'</span>'
     }
-    $('#Legend').append(colorLegend);
+    DOMCache.get('Legend').innerHTML = colorLegend; // Replace instead of append
 }
 
 function leftJoin(leftArray, rightArray, leftKey, rightKey) {
@@ -706,10 +747,10 @@ function createServiceLegendHorizontal(colorArray) {
 
     var data_legend = [];
 
-    for (var i = 0; i < jsonDataArray_filtered.length; i++) {
+    for (var i = 0; i < SpectrumChart.data.jsonArrayFiltered.length; i++) {
         data_legend[i] = {};
-        data_legend[i].Service = jsonDataArray_filtered[i].EngService;
-        data_legend[i].Direction = jsonDataArray_filtered[i].Direction;
+        data_legend[i].Service = SpectrumChart.data.jsonArrayFiltered[i].EngService;
+        data_legend[i].Direction = SpectrumChart.data.jsonArrayFiltered[i].Direction;
     }
     var grouped_legend = GroupAndRemoveDupplicate(data_legend);
     grouped_legend = leftJoin(colorArray, grouped_legend, "Service", "Service");
@@ -739,7 +780,10 @@ function createServiceLegendHorizontal(colorArray) {
 
     colorLegend += "</div>";
 
-    $("#Legend-horizontal").html(colorLegend);
+    const horizontalLegend = DOMCache.get('Legend-horizontal');
+    if (horizontalLegend) {
+        horizontalLegend.innerHTML = colorLegend;
+    }
 }
 
 
@@ -778,7 +822,7 @@ function assignGapFrequencyLabel(data) {
 
         var sorted_family = Frequency_array.sort((a, b) => a - b);  // Sort frequencies
         var uniqueArray = [...new Set(sorted_family)];              // Remove duplicates using the Set object
-        frequencyLabelArray.push(uniqueArray);
+        SpectrumChart.data.frequencyLabelArray.push(uniqueArray);
     }
     // frequencyLabelArray = frequencyLabelArray.filter(subArray => subArray.length > 0);
     // console.log(frequencyLabelArray);
@@ -846,7 +890,7 @@ function toggletoService() {
     removeElementsByIds(output_elementIds);
     createServiceLegend(colorArray_filtered);
     createServiceLegendHorizontal(colorArray_filtered);
-    ToggleLegend = "service";
+    SpectrumChart.legend.toggleMode = "service";
     console.log("to service")    
 }
 
@@ -856,7 +900,7 @@ function toggletoApplication() {
         return child.id; });
     removeElementsByIds(output_elementIds);
     createApplicationLegend(colorArray_application_filtered);
-    ToggleLegend = "application";
+    SpectrumChart.legend.toggleMode = "application";
     console.log("to application") 
 }
 
@@ -872,8 +916,8 @@ function onclickChart(clickedElement){
 function onclickLegend(clickedElement){
 
     var clicked_elementId = clickedElement.id;
-    console.log("________________________");
-    console.log("clicked_elementId: "+clicked_elementId);
+    Logger.log("________________________");
+    Logger.log("clicked_elementId: "+clicked_elementId);
     // var temp_elementId_direction = clickedElement.id;
     var separated_string_array = clicked_elementId.split("*");
     var elementId = separated_string_array[0].replace(/\s/g, "_");
@@ -882,48 +926,47 @@ function onclickLegend(clickedElement){
     // check if user clicks on service or service's direction
     if (clicked_elementId.includes("*")) { 
         // if click on direction of service legend
-        if (!SelectedLegend.includes(elementId)) {
-            SelectedLegend.push(elementId);
+        if (!SpectrumChart.legend.selected.includes(elementId)) {
+            SpectrumChart.legend.selected.push(elementId);
         }
         var elementId_direction = clicked_elementId;
         // var element_direction = document.getElementById(elementId_direction);
-        if(SelectedLegendDirection.includes(clicked_elementId)){
+        if(SpectrumChart.legend.selectedDirection.includes(clicked_elementId)){
             // if already exists in the global array -> delete & unfilter its direction
-            SelectedLegendDirection = SelectedLegendDirection.filter(item => item !== clicked_elementId);    //remove from the global array
+            SpectrumChart.legend.selectedDirection = SpectrumChart.legend.selectedDirection.filter(item => item !== clicked_elementId);    //remove from the global array
             var temp_elementId_direction_array = [];
             temp_elementId_direction_array[0] = clicked_elementId;
             toggleClassesbyID(temp_elementId_direction_array, "legend-direction");
         }
         else{
             // not exists -> put the direction id to the global array & filter its direction
-            SelectedLegendDirection.push(elementId_direction);
+            SpectrumChart.legend.selectedDirection.push(elementId_direction);
             
-            toggleClassesbyID(SelectedLegendDirection, "legend-direction-clicked");
+            toggleClassesbyID(SpectrumChart.legend.selectedDirection, "legend-direction-clicked");
             var temp_elementId = [];
             temp_elementId[0] = elementId.replace(/_/g, " ");   //  need to replace _ with blank space to map with the ID of legends with spaces
             toggleClassesbyID(temp_elementId, "legend-checked");
         }
     }
     else {    //if click on service legend
-        // console.log("click on service name");
-        if(SelectedLegend.includes(elementId)){    // service is already selected
-          //hereeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee 
-          console.log("click on service"); 
-            SelectedLegend = SelectedLegend.filter(item => item !== elementId);  // remove the service id from the global array
+        Logger.log("click on service name");
+        if(SpectrumChart.legend.selected.includes(elementId)){    // service is already selected
+          Logger.log("click on service"); 
+            SpectrumChart.legend.selected = SpectrumChart.legend.selected.filter(item => item !== elementId);  // remove the service id from the global array
             var unselected_legend_direction = [];
             var separated_direction ;
             var service_name ;
             // to remove all its directions from SelectedLegendDirection
-            var selected_legend_direction_temp = SelectedLegendDirection;       // temp var for prevention of loop paradox  to use its constant length in loop
-            for (var i = 0; i < SelectedLegendDirection.length; i++) {
-                separated_direction = SelectedLegendDirection[i].split("*")
+            var selected_legend_direction_temp = SpectrumChart.legend.selectedDirection;       // temp var for prevention of loop paradox  to use its constant length in loop
+            for (var i = 0; i < SpectrumChart.legend.selectedDirection.length; i++) {
+                separated_direction = SpectrumChart.legend.selectedDirection[i].split("*")
                 service_name = separated_direction[0].replace(/\s/g, "_");      // replace blank space with _
                 if (service_name == elementId) {  // if current direction belongs to the service
-                    unselected_legend_direction.push(SelectedLegendDirection[i]);   // push clicked service to unclick state
-                    selected_legend_direction_temp = selected_legend_direction_temp.filter(item => item !== SelectedLegendDirection[i]); // filter out directions under the clicked service
+                    unselected_legend_direction.push(SpectrumChart.legend.selectedDirection[i]);   // push clicked service to unclick state
+                    selected_legend_direction_temp = selected_legend_direction_temp.filter(item => item !== SpectrumChart.legend.selectedDirection[i]); // filter out directions under the clicked service
                 }
             }
-            SelectedLegendDirection = selected_legend_direction_temp;
+            SpectrumChart.legend.selectedDirection = selected_legend_direction_temp;
             var temp_elementId = [];
             temp_elementId[0] = elementId.replace(/_/g, " ");
             toggleClassesbyID(temp_elementId, "legend");
@@ -931,19 +974,19 @@ function onclickLegend(clickedElement){
             
         }
         else { // service is just selected
-            SelectedLegend.push(elementId);
+            SpectrumChart.legend.selected.push(elementId);
             var temp_elementId = [];
             temp_elementId[0] = elementId.replace(/_/g, " ");
             toggleClassesbyID(temp_elementId, "legend-checked");
         }
     }
 
-    console.log("elementId: "+elementId);
-    console.log("direction id: "+elementId_direction);
+    Logger.log("elementId: "+elementId);
+    Logger.log("direction id: "+elementId_direction);
 
-    console.log("SelectedLegend: "+SelectedLegend);
-    console.log("SelectedLegendDirection: "+SelectedLegendDirection);
-    console.log("________________________");
+    Logger.log("SelectedLegend: "+SpectrumChart.legend.selected);
+    Logger.log("SelectedLegendDirection: "+SpectrumChart.legend.selectedDirection);
+    Logger.log("________________________");
 
     // var All_element_id = [];
 
@@ -967,7 +1010,7 @@ function onclickLegend(clickedElement){
     // toggleClassesbyID(unselected_legend, "legend");
 
     // for data
-    var set = new Set([...SelectedLegend, ...SelectedLegendDirection]); // union both arrays
+    var set = new Set([...SpectrumChart.legend.selected, ...SpectrumChart.legend.selectedDirection]); // union both arrays
     var selected_service_and_direction = Array.from(set);
 
     for (var i = 0; i < selected_service_and_direction.length; i++) {
@@ -977,24 +1020,24 @@ function onclickLegend(clickedElement){
         }
     }
 
-    // console.log(selected_service_and_direction);
+    Logger.log(selected_service_and_direction);
 
     var selected_data = [];
     var unselected_data = [];
 
     for (var i = 0; i < selected_service_and_direction.length; i++) {
-        selected_data = jsonDataArray_filtered.filter(item => selected_service_and_direction[i].includes(item[jsonDataArray_filtered]));
+        selected_data = SpectrumChart.data.jsonArrayFiltered.filter(item => selected_service_and_direction[i].includes(item[SpectrumChart.data.jsonArrayFiltered]));
     }
 
-    selected_data, unselected_data  = filterAndPartitionData(jsonDataArray_filtered, 'Service_and_direction', selected_service_and_direction);
+    selected_data, unselected_data  = filterAndPartitionData(SpectrumChart.data.jsonArrayFiltered, 'Service_and_direction', selected_service_and_direction);
     selected_data = unselected_data.filteredData;
     unselected_data = unselected_data.unfilteredData;
     
     // for no service is selected but still perform search
-    if ((inputValue_legend != "") && (SelectedLegend.length == 0)){
-        // console.log(ServiceArray_filtered);
-        selected_data = jsonDataArray_filtered.filter(item => ServiceArray_filtered.includes(item.EngService));
-        unselected_data = jsonDataArray_filtered.filter(item => !ServiceArray_filtered.includes(item.EngService));
+    if ((SpectrumChart.legend.inputValue != "") && (SpectrumChart.legend.selected.length == 0)){
+        Logger.log(SpectrumChart.data.serviceArrayFiltered);
+        selected_data = SpectrumChart.data.jsonArrayFiltered.filter(item => SpectrumChart.data.serviceArrayFiltered.includes(item.EngService));
+        unselected_data = SpectrumChart.data.jsonArrayFiltered.filter(item => !SpectrumChart.data.serviceArrayFiltered.includes(item.EngService));
 console.log("YES");
     }
     // //hereeeeee
@@ -1035,7 +1078,7 @@ console.log("YES");
     toggleClassesbyID(selected_data_id, "highlight");
     toggleClassesbyID(unselected_data_id, "faddd");
     }
-    else (toggleClasses(jsonDataArray_filtered, "box"));
+    else (toggleClasses(SpectrumChart.data.jsonArrayFiltered, "box"));
 
     
     
@@ -1070,7 +1113,7 @@ console.log("YES");
 //     var unselected_legend = Array.from(elementsWithClassUnclicked).map(element => element.id);
 // // console.log(selected_legend);
 
-//     if (ToggleLegend == "service") { 
+//     if (SpectrumChart.legend.toggleMode == "service") { 
 //         var legend_type = "EngService";
 //         if (selected_legend.length == 0 ) {
 //             selected_legend = ServiceArray_filtered;
@@ -1210,7 +1253,7 @@ function filterAndPartitionData(data, attribute, attributeArray) {
 
 
 function logInput() {
-    inputValue_legend = inputBox_legend.value;
+    SpectrumChart.legend.inputValue = DOMCache.get('inputBox_legend').value;
     
     resetTimer();
     if (timeoutFlag == false) {
@@ -1218,7 +1261,7 @@ function logInput() {
         return; // Exit the function
     }
 
-    console.log(inputValue_legend);
+    Logger.log(SpectrumChart.legend.inputValue);
     
 }
 
@@ -1232,7 +1275,7 @@ function resetTimer() {
     delayTimer = setTimeout(function() {
         timeoutFlag = true;
         // console.log("User stopped typing for 1 second");
-        PerformSearch(inputValue_legend);
+        PerformSearch(SpectrumChart.legend.inputValue);
     }, 0);
 }
 
@@ -1241,27 +1284,27 @@ function PerformSearch(inputValue_legend) {
     
     cards = [];
     cardheight = 0;
-    SelectedLegend = [];            //to clear before search legend
-    SelectedLegendDirection = [];   //to clear before search legend
+    SpectrumChart.legend.selected = [];            //to clear before search legend
+    SpectrumChart.legend.selectedDirection = [];   //to clear before search legend
 
     // Get the current input value
     inputValue_legend = inputValue_legend.toLowerCase();
 
-    if (ToggleLegend == "service") {
+    if (SpectrumChart.legend.toggleMode == "service") {
 
         // Filter services based on the filtered start/stop frequency
-        var filtered_service_from_data = getUniqueValuesOfAttributebyAttribute(jsonDataArray_filtered,"EngService");
+        var filtered_service_from_data = getUniqueValuesOfAttributebyAttribute(SpectrumChart.data.jsonArrayFiltered,"EngService");
 
         // Filter items based on the input
         var filtered_legend = filtered_service_from_data.filter(item => item.toLowerCase().includes(inputValue_legend));
-        ServiceArray_filtered = filtered_legend;
+        SpectrumChart.data.serviceArrayFiltered = filtered_legend;
         
         var unselected_legend = filtered_service_from_data.filter(value => !filtered_legend.includes(value));
 
-        var selected_data = FilterDataByAttribute(jsonDataArray_filtered, "EngService", filtered_legend)
-        var unselected_data = FilterDataByAttribute(jsonDataArray_filtered, "EngService", unselected_legend)
+        var selected_data = FilterDataByAttribute(SpectrumChart.data.jsonArrayFiltered, "EngService", filtered_legend)
+        var unselected_data = FilterDataByAttribute(SpectrumChart.data.jsonArrayFiltered, "EngService", unselected_legend)
 
-        colorArray_filtered = colorArray.filter(word => filtered_legend.includes(word.Service));
+        SpectrumChart.data.colorArrayFiltered = SpectrumChart.data.colorArray.filter(word => filtered_legend.includes(word.Service));
         
         if(selected_data.length != 0){
             toggleClasses(selected_data, "highlight");
@@ -1272,9 +1315,9 @@ function PerformSearch(inputValue_legend) {
             toggleClasses(selected_data, "box");
             }
 
-        removeElementsByIds(ServiceArray);
-        createServiceLegend(colorArray_filtered);
-        createServiceLegendHorizontal(colorArray_filtered);
+        removeElementsByIds(SpectrumChart.data.serviceArray);
+        createServiceLegend(SpectrumChart.data.colorArrayFiltered);
+        createServiceLegendHorizontal(SpectrumChart.data.colorArrayFiltered);
     }
     
     else {      //ToggleLegend == "application"
@@ -1286,19 +1329,19 @@ function PerformSearch(inputValue_legend) {
         // }
 
         // Filter applications based on the filtered start/stop frequency
-        var filtered_application_from_data = getUniqueValuesOfAttributebyAttribute(jsonDataArray_filtered,"Application");
+        var filtered_application_from_data = getUniqueValuesOfAttributebyAttribute(SpectrumChart.data.jsonArrayFiltered,"Application");
 
-        // console.log(filtered_application_from_data);
+        Logger.log(filtered_application_from_data);
 
         // Filter items based on the input
         var filtered_legend2 = filtered_application_from_data.filter(item => item.toLowerCase().includes(inputValue_legend));
-        ApplicationArray_filtered = filtered_legend2;
+        SpectrumChart.data.applicationArrayFiltered = filtered_legend2;
 
         const unselected_legend2 = filtered_application_from_data.filter(value => !filtered_legend2.includes(value));
-        const filtered_color2 = colorArray_application.filter(word => filtered_legend2.includes(word.Application));
+        const filtered_color2 = SpectrumChart.data.colorArrayApplication.filter(word => filtered_legend2.includes(word.Application));
 
-        var selected_data2 = FilterDataByAttribute(jsonDataArray_filtered, "Application", filtered_legend2)
-        var unselected_data2 = FilterDataByAttribute(jsonDataArray_filtered, "Application", unselected_legend2)
+        var selected_data2 = FilterDataByAttribute(SpectrumChart.data.jsonArrayFiltered, "Application", filtered_legend2)
+        var unselected_data2 = FilterDataByAttribute(SpectrumChart.data.jsonArrayFiltered, "Application", unselected_legend2)
 
         if(selected_data2.length != 0){
             toggleClasses(selected_data2, "highlight");
@@ -1309,8 +1352,8 @@ function PerformSearch(inputValue_legend) {
             toggleClasses(selected_data2, "box");
             }
         // console.log(filtered_color2);
-        colorArray_application_filtered = filtered_color2;
-        removeElementsByIds(ApplicationArray);
+        SpectrumChart.data.colorArrayApplicationFiltered = filtered_color2;
+        removeElementsByIds(SpectrumChart.data.applicationArray);
         createApplicationLegend(filtered_color2);
         
     }
@@ -1389,18 +1432,18 @@ function FilterDataByAttribute(data_array, attribute, attribute_array) {
 function filterFrequency() {
     cards = [];
     cardheight = 0;
-    SelectedLegend = [];            //to clear before search legend
-    SelectedLegendDirection = [];   //to clear before search legend
-    SelectedLegend_tmp = [];
+    SpectrumChart.legend.selected = [];            //to clear before search legend
+    SpectrumChart.legend.selectedDirection = [];   //to clear before search legend
+    SpectrumChart.legend.selectedTemp = [];
 
-    var inputValue_StartFrequency = inputBox_StartFrequency.value;
-    var inputValue_StopFrequency = inputBox_StopFrequency.value;
+    var inputValue_StartFrequency = DOMCache.get('inputBox_StartFrequency').value;
+    var inputValue_StopFrequency = DOMCache.get('inputBox_StopFrequency').value;
 
-    var section = document.getElementById("output");
+    var section = DOMCache.get("output");
     var output_elementIds = Array.from(section.children).map(function(child) {
         return child.id; });
 
-    var unit_dropdown = document.getElementById("unit_dropdown");
+    var unit_dropdown = DOMCache.get("unit_dropdown");
     var selected_unit = unit_dropdown.value;
 
     //normalize start frequency unit
@@ -1426,7 +1469,7 @@ function filterFrequency() {
         var input_frequency = 0;
     }
     var start_frequency = input_frequency;
-    var result = jsonDataArray.filter(word => (word.Start_Frequency >= input_frequency) || ((word.Start_Frequency < input_frequency) && (word.Stop_Frequency > input_frequency)));
+    var result = SpectrumChart.data.jsonArray.filter(word => (word.Start_Frequency >= input_frequency) || ((word.Start_Frequency < input_frequency) && (word.Stop_Frequency > input_frequency)));
 
     
     //normalize start frequency unit
@@ -1449,7 +1492,7 @@ function filterFrequency() {
         }
     }
     else {
-        var input_frequency = jsonDataArray[jsonDataArray.length-1].Stop_Frequency;
+        var input_frequency = SpectrumChart.data.jsonArray[SpectrumChart.data.jsonArray.length-1].Stop_Frequency;
     }
     var stop_frequency = input_frequency;
 
@@ -1460,23 +1503,28 @@ function filterFrequency() {
     
     result = result.filter(word => word.Start_Frequency < input_frequency);
 
-    jsonDataArray_filtered = result;
+    SpectrumChart.data.jsonArrayFiltered = result;
     // console.log(jsonDataArray_filtered);
 
     removeElementsByIds(output_elementIds);
 
-    assignStackID2(jsonDataArray_filtered); // done
-    insertGap2(jsonDataArray_filtered); //done
-    sortStackMembers2(jsonDataArray_filtered);
-    assignRowID2(jsonDataArray_filtered);
-    assignGapFrequencyLabel2(jsonDataArray_filtered);
-    plot(jsonDataArray_filtered);
+    assignStackID2(SpectrumChart.data.jsonArrayFiltered); // done
+    insertGap2(SpectrumChart.data.jsonArrayFiltered); //done
+    sortStackMembers2(SpectrumChart.data.jsonArrayFiltered);
+    assignRowID2(SpectrumChart.data.jsonArrayFiltered);
+    assignGapFrequencyLabel2(SpectrumChart.data.jsonArrayFiltered);
+    plot(SpectrumChart.data.jsonArrayFiltered);
     filteredLegend();
 }
 
 
 function assignStackID2(data) {
-    // console.log("assignStackID2");
+    Logger.log("assignStackID2", data.length);
+
+    if (!data || data.length === 0) {
+        Logger.error("assignStackID2: No data provided");
+        return;
+    }
 
     //sort order by start frequency
     var sorted_data = data.sort(function(a, b) {
@@ -1507,14 +1555,14 @@ function assignStackID2(data) {
         sorted_data[i].i = i;
         sorted_data[i].last_max_stopfreq = last_max_stopfreq;
     }
-    jsonDataArray_filtered = sorted_data;
+    SpectrumChart.data.jsonArrayFiltered = sorted_data;
 
     // console.log("End assignStackID2------------");
 }
 
 
 function insertGap2(data) {
-    console.log("insertGap");
+    Logger.log("insertGap");
     var last_stackid = data[data.length-1].stack_id
     // displayOutput(data);
     var gap_position = [];
@@ -1532,7 +1580,7 @@ function insertGap2(data) {
         }
     } 
         assignStackID2(data);
-        console.log("End insertGap2------------");
+        Logger.log("End insertGap2");
 }
 
 
@@ -1568,7 +1616,7 @@ function assignRowID2(data) {
             row_id += 1;
         }
 
-        if (jsonDataArray_filtered.length == jsonDataArray.length) {
+        if (SpectrumChart.data.jsonArrayFiltered.length == SpectrumChart.data.jsonArray.length) {
             // if ( max_stop_freq > min_start_freq_of_row_family*10 ) {
             //     row_id += 1;
             // }
@@ -1591,15 +1639,15 @@ function assignRowID2(data) {
         assigned_stack_count += 1;
     }
 
-    jsonDataArray_filtered = data;
+    SpectrumChart.data.jsonArrayFiltered = data;
 
-    if (jsonDataArray_filtered.length != jsonDataArray.length) {
-        assignRowID3(jsonDataArray_filtered)
+    if (SpectrumChart.data.jsonArrayFiltered.length != SpectrumChart.data.jsonArray.length) {
+        assignRowID3(SpectrumChart.data.jsonArrayFiltered)
     }
 }
 
 function assignRowID3(data) {
-    var row_num = jsonDataArray_filtered[jsonDataArray_filtered.length-1].row_id + 1
+    var row_num = SpectrumChart.data.jsonArrayFiltered[SpectrumChart.data.jsonArrayFiltered.length-1].row_id + 1
     var number_of_stacks = data[data.length-1].stack_id + 1;
     var stack_per_row = Math.ceil(number_of_stacks/row_num);
     var row_id = 0;
@@ -1626,7 +1674,7 @@ function assignRowID3(data) {
         data[data.length-1].row_id = data[data.length-1].row_id + 1;
     }
 
-    jsonDataArray_filtered = data;
+    SpectrumChart.data.jsonArrayFiltered = data;
 }
 
 
@@ -1635,7 +1683,7 @@ function assignUniqueID2(data){
         data[i].id = i;
     }
 
-    jsonDataArray_filtered = data;
+    SpectrumChart.data.jsonArrayFiltered = data;
 }
 
 
@@ -1653,13 +1701,13 @@ function sortStackMembers2(data) {
         }   
     }
 
-    jsonDataArray_filtered = result;
+    SpectrumChart.data.jsonArrayFiltered = result;
     // console.log("End sortStackMembers2------------");
 }
 
 
 function assignGapFrequencyLabel2(data) {
-    frequencyLabelArray = [];
+    SpectrumChart.data.frequencyLabelArray = [];
     for (var i=0; i<=data[data.length-1].row_id; i++) 
     {
         const row_family = data.filter(word => word.row_id == i);
@@ -1685,25 +1733,25 @@ function assignGapFrequencyLabel2(data) {
         var sorted_family = Frequency_array.sort((a, b) => a - b);  // Sort frequencies
         var uniqueArray = [...new Set(sorted_family)];              // Remove duplicates using the Set object
         
-        frequencyLabelArray.push(uniqueArray);
+        SpectrumChart.data.frequencyLabelArray.push(uniqueArray);
     }
 }
 
 
 function filteredLegend(){
    
-    var filtered_services = getUniqueValuesOfAttributebyAttribute(jsonDataArray_filtered,"EngService");
+    var filtered_services = getUniqueValuesOfAttributebyAttribute(SpectrumChart.data.jsonArrayFiltered,"EngService");
 
-    // console.log(filtered_services);
-    const filtered_color = colorArray.filter(word => filtered_services.includes(word.Service));
-    removeElementsByIds(ServiceArray);
+    Logger.log(filtered_services);
+    const filtered_color = SpectrumChart.data.colorArray.filter(word => filtered_services.includes(word.Service));
+    removeElementsByIds(SpectrumChart.data.serviceArray);
     createServiceLegend(filtered_color);
     createServiceLegendHorizontal(filtered_color);
     
-    colorArray_filtered = filtered_color;
-    ServiceArray_filtered = [];
-    for (var i=0; i<colorArray_filtered.length; i++ ){
-        ServiceArray_filtered[i] = colorArray_filtered[i].Service;
+    SpectrumChart.data.colorArrayFiltered = filtered_color;
+    SpectrumChart.data.serviceArrayFiltered = [];
+    for (var i=0; i<SpectrumChart.data.colorArrayFiltered.length; i++ ){
+        SpectrumChart.data.serviceArrayFiltered[i] = SpectrumChart.data.colorArrayFiltered[i].Service;
     }
     // console.log(ServiceArray_filtered);
 }
@@ -1727,32 +1775,32 @@ function getStackMembers(data,p) {
 
 
 function logContainerWidth() {
-    var container = document.getElementById('section_chart');
-    containerWidth = container.clientWidth;
-    containerWidth = Math.round(containerWidth / 10) * 10;
-    console.log("Container Width: " + containerWidth + " pixels");
+    const container = DOMCache.get('section_chart');
+    SpectrumChart.dimensions.containerWidth = container.clientWidth;
+    SpectrumChart.dimensions.containerWidth = Math.round(SpectrumChart.dimensions.containerWidth / 10) * 10;
+    Logger.log("Container Width: " + SpectrumChart.dimensions.containerWidth + " pixels");
 }
 
 
 function logContainerHeight() {
-    var container = document.getElementById('Main');
-    containerHeight  = container.clientHeight;
-    console.log("Container Height: " + containerHeight + " pixels");
-    return containerHeight;
+    const container = DOMCache.get('Main');
+    SpectrumChart.dimensions.containerHeight = container.clientHeight;
+    Logger.log("Container Height: " + SpectrumChart.dimensions.containerHeight + " pixels");
+    return SpectrumChart.dimensions.containerHeight;
 }
 
 
 // Function to log the screen width
 function logScreenWidth() {
-    screenWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-    console.log("Screen Width: " + screenWidth + " pixels");
+    SpectrumChart.dimensions.screenWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+    Logger.log("Screen Width: " + SpectrumChart.dimensions.screenWidth + " pixels");
 }
 
 
 // Function to log the screen height
 function logScreenHeight() {
-    screenHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-    console.log("Screen Height: " + screenHeight + " pixels");
+    SpectrumChart.dimensions.screenHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+    Logger.log("Screen Height: " + SpectrumChart.dimensions.screenHeight + " pixels");
 }
 
 
@@ -1792,14 +1840,14 @@ function getUniqueCombinations(arr, attr1, attr2) {
 
 function getColor(data,j){
     var EngService = data[j].EngService;
-    const found = colorArray.findIndex(word=> word.Service == EngService)
+    const found = SpectrumChart.data.colorArray.findIndex(word=> word.Service == EngService)
     
     var result;
     if(found == -1){ // -1 is not matched
         result = 0;
     }
     else {
-        result = colorArray[found].Color;
+        result = SpectrumChart.data.colorArray[found].Color;
     }
     return result;
 }
@@ -1822,24 +1870,24 @@ function selectMenu(menu) {
     menu.classList.add('selected');
 
     // Get the id of the selected menu
-    SelectedMenu = menu.id;
+    SpectrumChart.config.selectedMenu = menu.id;
     
-    console.log("--------------------------------------------")
-    if (SelectedMenu == "nfat") {
-        sheet_index0 = 0;
-        sheet_index1 = 1;
-        sheet_index2 = 2;
+    Logger.log("--------------------------------------------")
+    if (SpectrumChart.config.selectedMenu == "nfat") {
+        SpectrumChart.sheets.index0 = 0;
+        SpectrumChart.sheets.index1 = 1;
+        SpectrumChart.sheets.index2 = 2;
     }
-    else if (SelectedMenu == "unlicensed") {
-        sheet_index0 = 3;
-        sheet_index1 = 4;
-        // sheet_index2 = 2;
+    else if (SpectrumChart.config.selectedMenu == "unlicensed") {
+        SpectrumChart.sheets.index0 = 3;
+        SpectrumChart.sheets.index1 = 4;
+        // SpectrumChart.sheets.index2 = 2;
     }
     else
     {
-        console.log("Error! unknown selected menu")
+        Logger.error("Error! unknown selected menu")
     }
-    console.log("SelectedMenu "+SelectedMenu);
+    Logger.log("SelectedMenu "+SpectrumChart.config.selectedMenu);
 
 
     
@@ -1882,11 +1930,11 @@ function selectMenu(menu) {
             toggleSwitch.addEventListener('change', function() {
                 let statusText = document.getElementById('ver-hor-text');
                 if (this.checked) { 
-                    hide = 0;
+                    SpectrumChart.config.hide = 0;
                     statusText.textContent = "Horizontal legend";
                     filterFrequency()
                 } else {
-                    hide = 1;
+                    SpectrumChart.config.hide = 1;
                     statusText.textContent = "Vertical legend";
                     filterFrequency()
                 }
