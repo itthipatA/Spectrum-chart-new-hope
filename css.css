@@ -1,367 +1,360 @@
+/* ========================================
+   1. RESET & BASE STYLES
+   ======================================== */
 
-    .box {
-      box-shadow: 1 0 1px #0a0a0a;
-      opacity: 0.9;
-      transition: 0.1s;
-      text-align: center;
-      font-weight: bold;
-      vertical-align: middle;
-      cursor: pointer;
-      animation: fadeIn 0.1s ease-in forwards;
-    }
-
-    .box:hover {
-        opacity: 1;
-        /* color : white; */
-    }
-    
-    .main-container {
-      display: flex;
-      box-shadow: 0 0 1px #0a0a0a;
-      margin-left: 10px;
-      animation: zoomIn 0.5s ease-in-out forwards;
-
-    }
-
-    .label-container {
-      display: inline-flex;
-      font-size: 10px;
-      margin-left: 0px;
-
-    }
-
-    .tooltip-inner {
-      background-color: #000;
-    }
-
-    .stack-container {
-      display: flex;
-      box-shadow: 0 0 1px #000000;
-      flex-direction: column;
-      margin-left: 0px;
-      margin-right: 0px;
-      padding: 0px;
-      width: auto;
-    }
-
-    .newline-container {
-      display: flex;
-      flex-direction: column;
-      margin-left: 0px;
-      margin-right: 0px;
-      padding: 0px;
-      width: auto;
-      height: 100px;
-    }
-
-
-    .box_gap {
-      margin-left: 0px;
-    }
-
-    .frequency-label-container {
-      display: flex;
-      flex-direction: column;
-      margin-left: 0px;
-      margin-right: 0px;
-      padding: 0px;
-      width: auto;
-      
-    }
-
-
-    .legend {
-        font-size: 13px;
-        animation: fadeIn 0.1s ease-in forwards;
-    }
-      .legend:hover{
-          background-color: #a9aaab;
-          color : white;
-          cursor: pointer;
-    }
-    .legend-checked{
-        background-color: #a9aaab;
-        color : white;
-        font-size: 13px;
-    }
-
-    .legend-direction {
-      opacity: 0.7;
-      color: rgb(57, 57, 57);
-    }
-    .legend-direction:hover {
-      opacity: 0.9;
-      transition: 0.1s;
-      color: rgb(145, 0, 0);
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    #Legend-horizontal {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center; /* Centers items in each row */
-      align-items: center;
-      width: 100%;
-  }
+/* CSS Custom Properties for immediate response UX */
+:root {
+  --transition-duration: 0ms; /* Instant response for best UX */
+  --transition-easing: ease-out; /* Simpler, faster easing */
+  --opacity-default: 0.9;
+  --opacity-faded: 0.1;
+  --opacity-full: 1;
+  --brightness-default: 1;
+  --brightness-highlight: 1.1;
+  --brightness-intense: 1.2;
   
-  #Legend-horizontal > div {
-      /* Remove display: flex if not needed */
-      /* display: flex; */
-      text-align: center;
-      font-size: 13px;
-      /* margin: 5px; Optional: adds spacing between items */
-  }
-
-
-
-    
-    .highlight{
-        opacity: 0.9;
-        animation: fadeIn 0.1s ease-in forwards;
-        text-align: center;
-        font-weight: bold;
-        vertical-align: middle;
-        cursor: pointer;
-    }
-    .highlight:hover {
-      opacity: 1;
-      color : white;
-     
-  }
-    .faddd{
-        opacity: 0.1;
-        transition: 0.1s;
-        animation: fadeOut 0.1s ease-in forwards;
-        text-align: center;
-        font-weight: bold;
-        vertical-align: middle;
-        cursor: pointer;
-    }
-    .click{
-        opacity: 1;
-        background-color: #a9aaab;
-        color : white;
-    }
-
-
-    
-
-        @keyframes zoomIn {
-          from {
-            transform: scale(0);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 0.8;
-          }
-        }
-        .delay-1 { animation-delay: 0.1s; }
-        .delay-2 { animation-delay: 0.2s; }
-        .delay-3 { animation-delay: 0.3s; }
-        .delay-4 { animation-delay: 0.4s; }
-        .delay-5 { animation-delay: 0.5s; }
-        .delay-6 { animation-delay: 0.6s; }
-        .delay-7 { animation-delay: 0.7s; }
-        .delay-8 { animation-delay: 0.8s; }
-        .delay-9 { animation-delay: 0.9s; }
-        .delay-10 { animation-delay: 0.10s; }        
-
-
-        .inputBox {
-          width: 150px; 
-          height: 20px; 
-          padding: 5px;
-          font-size: 14px;
-      }
-
-      .frequency-search-container {
-        display: flex;
-        align-items: center;
-      }
-
-      @keyframes fadeOut {
-        from {
-          opacity: 0.8;
-        }
-        to {
-          opacity: 0.1;
-        }
-      }
-      @keyframes fadeIn {
-        from {
-          opacity: 0.1;
-        }
-      }
-
-
-    .btn{
-        border: 3px solid #818080;
-        display: inline-block;
-        padding: 10px;
-        position: relative;
-        text-align: center;
-        transition: background 600ms ease, color 600ms ease;
-        
-    }
-    
-    input[type="radio"].toggle {
-        display: none;
-        & + label{
-            cursor: pointer;
-            min-width: 60px;
-            &:hover{
-                background: none;
-                color: #272626;
-            }
-            &:after{
-                background: #818080;
-                content: "";
-                height: 100%;
-                position: absolute;
-                top: 0;
-                transition: left 200ms cubic-bezier(0.77, 0, 0.175, 1);
-                width: 100%;
-                z-index: -1;
-            }
-        }
-        &.toggle-left + label {
-            border-right: 0;
-            &:after{
-                left: 100%
-            }
-        }
-        &.toggle-right + label{
-            margin-left: -5px;
-            &:after{
-                left: -100%;
-            }
-        }
-        &:checked + label {
-            cursor: default;
-            color: #fff;
-            transition: color 200ms;
-            &:after{
-                left: 0;
-            }
-        }
-    }
-
-    .menu-container {
-      display: flex;
-      position: relative;
-      height: 50px;
-      margin-bottom: 30px;
-      margin-top: 10px;
-    }
-
-    .menu-item {
-      padding: 10px;
-      margin: 0 5px;
-      cursor: pointer;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-100%, -50%);
-      transition: opacity 0.5s, transform 0.7s, font-size 0s;
-    }
-
-    .menu-item.selected {
-      opacity: 1;
-      transform: translate(-50%, -50%);
-      font-size: 1.5em;
-    }
-
-    .menu-item:not(.selected) {
-      opacity: 0.2;
-      transform: translate(-50%, 20%);
-      font-size: 1em;
-    }
-
-    .menu-item:not(.selected):hover {
-      opacity: 0.5;
-      transition: 0.5s;
-    }
-
-    body {
-      padding: 20px;
-      position: relative;
-      overflow-x: hidden;
-  }
-  .span-parent {
-      cursor: pointer;
-      margin: 10px;
-      padding: 8px 15px;
-      background: #eee;
-      border-radius: 4px;
-      display: inline-block;
-  }
-  .custom-card {
-      position: absolute;
-      min-width: 200px;
-      max-width: 300px;
-      background: white;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      z-index: 1;
-      font-size: 13px;
-  }
-  .custom-card .card-header {
-      padding: 10px;
-      background: #f5f5f5;
-      border-bottom: 1px solid #ddd;
-      border-radius: 8px 8px 0 0;
-      cursor: move;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-  }
-  .custom-card .card-content {
-      padding: 15px;
-      /* word-wrap: break-word; */
-  }
-
-  #cards-container {
-    position: relative;  /* Removes it from normal document flow */
-    top: 0; left: 0;     /* Positions it at the top */
-    width: 100%;         /* Makes sure it spans the full width */
-    height: 0;           /* Prevents it from expanding */
-    overflow: visible;   /* Ensures child elements are visible */
+  /* Instant response modes */
+  --instant-transition: 0ms;
+  --no-transition: 0ms;
 }
-  .close-btn {
-      cursor: pointer;
-      padding: 0 5px;
-      font-weight: bold;
-      color: #999;
-  }
-  .close-btn:hover {
-      color: #666;
-  }
-  #canvas {
-      position: fixed;
+
+/* Global body styling with overflow control and performance optimization */
+body {
+  padding: 20px;
+  position: relative;
+  overflow-x: hidden;
+  /* Enable GPU acceleration for entire page */
+  transform: translate3d(0, 0, 0);
+  will-change: auto;
+}
+
+/* ========================================
+   2. LAYOUT CONTAINERS
+   ======================================== */
+
+/* Main chart container with flex layout and animations */
+.main-container {
+  display: flex;
+  box-shadow: 0 0 1px #0a0a0a;
+  margin-left: 10px;
+  animation: zoomIn 0.5s ease-in-out forwards;
+}
+
+/* Stack container for vertical frequency grouping */
+.stack-container {
+  display: flex;
+  box-shadow: 0 0 1px #000000;
+  flex-direction: column;
+  margin-left: 0px;
+  margin-right: 0px;
+  padding: 0px;
+  width: auto;
+}
+
+/* Newline container for row spacing */
+.newline-container {
+  display: flex;
+  flex-direction: column;
+  margin-left: 0px;
+  margin-right: 0px;
+  padding: 0px;
+  width: auto;
+  height: 100px;
+}
+
+/* Frequency label container for chart labeling */
+.frequency-label-container {
+  display: flex;
+  flex-direction: column;
+  margin-left: 0px;
+  margin-right: 0px;
+  padding: 0px;
+  width: auto;
+}
+
+/* Label container for inline frequency labels */
+.label-container {
+  display: inline-flex;
+  font-size: 10px;
+  margin-left: 0px;
+}
+
+/* Box gap utility for spacing adjustments */
+.box_gap {
+  margin-left: 0px;
+}
+
+/* Cards container for information overlays */
+#cards-container {
+  position: relative;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 0;
+  overflow: visible;
+}
+
+/* ========================================
+   3. CHART VISUALIZATION COMPONENTS
+   ======================================== */
+
+/* Primary frequency box styling for instant response */
+.box {
+  box-shadow: 1 0 1px #0a0a0a;
+  opacity: var(--opacity-default);
+  text-align: center;
+  font-weight: bold;
+  vertical-align: middle;
+  cursor: pointer;
+  /* Instant visual feedback */
+  transition: none;
+  backface-visibility: hidden;
+}
+
+.box:hover {
+  opacity: var(--opacity-full);
+}
+
+/* Highlighted frequency box state with instant response */
+.highlight {
+  opacity: var(--opacity-full) !important;
+  text-align: center;
+  font-weight: bold;
+  vertical-align: middle;
+  cursor: pointer;
+  /* No transition for instant highlight */
+  transition: none !important;
+  filter: brightness(var(--brightness-highlight)) !important;
+  backface-visibility: hidden;
+}
+
+.highlight:hover {
+  opacity: var(--opacity-full);
+  color: white;
+}
+
+/* Faded frequency box state with instant response */
+.faddd {
+  opacity: var(--opacity-faded) !important;
+  text-align: center;
+  font-weight: bold;
+  vertical-align: middle;
+  cursor: pointer;
+  /* No transition for instant fade */
+  transition: none !important;
+  backface-visibility: hidden;
+}
+
+/* Clicked/selected frequency box state with instant response */
+.click {
+  opacity: 1 !important;
+  background-color: #a9aaab !important;
+  color: white !important;
+  /* Instant visual feedback for clicks */
+  transition: none !important;
+  backface-visibility: hidden;
+}
+
+/* Fixed canvas for connection lines */
+#canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ========================================
+   4. LEGEND & NAVIGATION
+   ======================================== */
+
+/* Base legend item styling with instant response */
+.legend {
+  font-size: 13px;
+  will-change: background-color, color;
+  transition: all var(--instant-transition);
+  backface-visibility: hidden;
+}
+
+.legend:hover {
+  background-color: #a9aaab;
+  color: white;
+  cursor: pointer;
+}
+
+/* Selected legend item state */
+.legend-checked {
+  background-color: #a9aaab;
+  color: white;
+  font-size: 13px;
+  transition: all var(--instant-transition);
+}
+
+/* Legend direction toggle controls */
+.legend-direction {
+  opacity: 0.7;
+  color: rgb(57, 57, 57);
+  will-change: opacity, color;
+  transition: all var(--instant-transition);
+}
+
+.legend-direction:hover {
+  opacity: 0.9;
+  color: rgb(145, 0, 0);
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Horizontal legend layout container */
+#Legend-horizontal {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+#Legend-horizontal > div {
+  text-align: center;
+  font-size: 13px;
+}
+
+/* Menu container for chart type selection */
+.menu-container {
+  display: flex;
+  position: relative;
+  height: 50px;
+  margin-bottom: 30px;
+  margin-top: 10px;
+}
+
+/* Individual menu items with animation */
+.menu-item {
+  padding: 10px;
+  margin: 0 5px;
+  cursor: pointer;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-100%, -50%);
+  transition: opacity 0.5s, transform 0.7s, font-size 0s;
+}
+
+.menu-item.selected {
+  opacity: 1;
+  transform: translate(-50%, -50%);
+  font-size: 1.5em;
+}
+
+.menu-item:not(.selected) {
+  opacity: 0.2;
+  transform: translate(-50%, 20%);
+  font-size: 1em;
+}
+
+.menu-item:not(.selected):hover {
+  opacity: 0.5;
+  transition: 0.5s;
+}
+
+/* Tooltip styling for information display */
+.tooltip-inner {
+  background-color: #000;
+}
+
+/* ========================================
+   5. FORM CONTROLS & INPUTS
+   ======================================== */
+
+/* Input box styling for frequency search */
+.inputBox {
+  width: 150px;
+  height: 20px;
+  padding: 5px;
+  font-size: 14px;
+}
+
+/* Frequency search container layout */
+.frequency-search-container {
+  display: flex;
+  align-items: center;
+}
+
+/* Toggle button base styling */
+.btn {
+  border: 3px solid #818080;
+  display: inline-block;
+  padding: 10px;
+  position: relative;
+  text-align: center;
+  transition: background var(--instant-transition), color var(--instant-transition);
+}
+
+/* Radio toggle switch styling */
+input[type="radio"].toggle {
+  display: none;
+
+  & + label {
+    cursor: pointer;
+    min-width: 60px;
+
+    &:hover {
+      background: none;
+      color: #272626;
+    }
+
+    &:after {
+      background: #818080;
+      content: "";
+      height: 100%;
+      position: absolute;
       top: 0;
-      left: 0;
-      z-index: 0;
-      pointer-events: none;
+      transition: left var(--instant-transition);
+      width: 100%;
+      z-index: -1;
+    }
   }
 
+  &.toggle-left + label {
+    border-right: 0;
 
-/* Toggle swithch */
+    &:after {
+      left: 100%;
+    }
+  }
+
+  &.toggle-right + label {
+    margin-left: -5px;
+
+    &:after {
+      left: -100%;
+    }
+  }
+
+  &:checked + label {
+    cursor: default;
+    color: #fff;
+    transition: color var(--instant-transition);
+
+    &:after {
+      left: 0;
+    }
+  }
+}
+
+/* Toggle switch container for legend direction */
 .container-switch {
   display: flex;
   justify-content: left;
   align-items: left;
-  /* flex-direction: column; */
 }
 
-#ver-hor-text{
+/* Toggle switch text styling */
+#ver-hor-text {
   font-size: 13px;
 }
 
-
-
+/* Toggle switch component */
 .switch {
   position: relative;
   display: inline-block;
@@ -375,6 +368,7 @@
   height: 0;
 }
 
+/* Toggle switch slider background */
 .slider {
   position: absolute;
   cursor: pointer;
@@ -387,6 +381,7 @@
   border-radius: 25px;
 }
 
+/* Toggle switch slider button */
 .slider:before {
   position: absolute;
   content: "";
@@ -399,6 +394,7 @@
   border-radius: 50%;
 }
 
+/* Toggle switch active states */
 input:checked + .slider {
   background-color: #2196F3;
 }
@@ -406,4 +402,294 @@ input:checked + .slider {
 input:checked + .slider:before {
   transform: translateX(24px);
 }
-/* Toggle swithch */
+
+/* ========================================
+   6. INTERACTIVE CARDS & TOOLTIPS
+   ======================================== */
+
+/* Clickable span elements for card triggers */
+.span-parent {
+  cursor: pointer;
+  margin: 10px;
+  padding: 8px 15px;
+  background: #eee;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* Custom information card styling */
+.custom-card {
+  position: absolute;
+  min-width: 200px;
+  max-width: 300px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  z-index: 1;
+  font-size: 13px;
+}
+
+/* Card header with drag functionality */
+.custom-card .card-header {
+  padding: 10px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+  border-radius: 8px 8px 0 0;
+  cursor: move;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Card content area */
+.custom-card .card-content {
+  padding: 15px;
+  /* word-wrap: break-word; */
+}
+
+/* Card close button */
+.close-btn {
+  cursor: pointer;
+  padding: 0 5px;
+  font-weight: bold;
+  color: #999;
+}
+
+.close-btn:hover {
+  color: #666;
+}
+
+/* Footnote link styling with instant response */
+.footnote-link {
+  color: #007bff;
+  cursor: pointer;
+  text-decoration: underline;
+  margin: 0 2px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  will-change: color, background-color;
+  transition: all var(--instant-transition);
+  backface-visibility: hidden;
+}
+
+.footnote-link:hover {
+  color: #0056b3;
+  background-color: #f8f9fa;
+}
+
+/* Footnote card styling */
+.footnote-card {
+  border-left: 3px solid #007bff;
+  background-color: #f8f9fa;
+}
+
+.footnote-card .card-header {
+  background-color: #e3f2fd;
+  font-weight: bold;
+}
+
+/* Thailand footnote link styling with instant response */
+.thailand-footnote-link {
+  color: #28a745;
+  cursor: pointer;
+  text-decoration: underline;
+  margin: 0 2px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  will-change: color, background-color;
+  transition: all var(--instant-transition);
+  backface-visibility: hidden;
+}
+
+.thailand-footnote-link:hover {
+  color: #1e7e34;
+  background-color: #f8ffe8;
+}
+
+/* Thailand footnote card styling */
+.thailand-footnote-card {
+  border-left: 3px solid #28a745;
+  background-color: #f8ffe8;
+}
+
+.thailand-footnote-card .card-header {
+  background-color: #d4edda;
+  color: #155724;
+  font-weight: bold;
+}
+
+/* Footnote legend items */
+.footnote-legend {
+  font-size: 13px;
+  animation: fadeIn 0.1s ease-in forwards;
+  padding: 2px;
+  margin: 0px;
+  display: block;
+  border: 0px;
+  outline: none;
+  background-color: transparent;
+}
+
+.footnote-legend:hover {
+  background-color: #a9aaab;
+  color: white;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.footnote-legend-checked {
+  background-color: #e9ecef;
+  color: #495057;
+  font-size: 13px;
+}
+
+/* Horizontal footnote legend items */
+.footnote-legend-hor {
+  font-size: 13px;
+  padding: 2px;
+  margin: 0px;
+  border: 0px;
+  outline: none;
+  background-color: transparent;
+  border-radius: 0px;
+}
+
+.footnote-legend-hor:hover {
+  background-color: #a9aaab !important;
+  color: white !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Center footnote card */
+.center-footnote-card {
+  border: 2px solid #007bff !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+  background-color: #ffffff !important;
+}
+
+.center-footnote-card .card-header {
+  background-color: #007bff !important;
+  color: white !important;
+  font-weight: bold;
+}
+
+/* Thailand footnote highlighting with instant response */
+.highlight.thailand-highlighted {
+  opacity: 1 !important;
+  filter: brightness(1.2) !important;
+  will-change: opacity, filter;
+  transition: none !important;
+  backface-visibility: hidden;
+  box-shadow: 0 0 8px rgba(40, 167, 69, 0.3) !important;
+}
+
+
+/* ========================================
+   7. ANIMATIONS & TRANSITIONS
+   ======================================== */
+
+/* Zoom in animation for containers */
+@keyframes zoomIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+}
+
+/* Fade out animation for filtered elements */
+@keyframes fadeOut {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0.1;
+  }
+}
+
+/* Fade in animation for appearing elements */
+@keyframes fadeIn {
+  from {
+    opacity: 0.1;
+  }
+  to {
+    opacity: 0.9;
+  }
+}
+
+/* Smooth highlight animation */
+@keyframes highlightIn {
+  from {
+    opacity: 0.9;
+    filter: brightness(1);
+  }
+  to {
+    opacity: 1;
+    filter: brightness(1.1);
+  }
+}
+
+/* Smooth unhighlight animation */
+@keyframes highlightOut {
+  from {
+    opacity: 1;
+    filter: brightness(1.1);
+  }
+  to {
+    opacity: 0.9;
+    filter: brightness(1);
+  }
+}
+
+/* Animation delay classes for staggered effects */
+.delay-1 { animation-delay: 0.02s; }
+.delay-2 { animation-delay: 0.04s; }
+.delay-3 { animation-delay: 0.06s; }
+.delay-4 { animation-delay: 0.08s; }
+.delay-5 { animation-delay: 0.10s; }
+.delay-6 { animation-delay: 0.12s; }
+.delay-7 { animation-delay: 0.14s; }
+.delay-8 { animation-delay: 0.16s; }
+.delay-9 { animation-delay: 0.18s; }
+.delay-10 { animation-delay: 0.20s; }
+
+/* Performance optimization classes */
+.gpu-accelerated {
+  will-change: opacity;
+  backface-visibility: hidden;
+}
+
+.smooth-transition {
+  transition: all var(--instant-transition);
+}
+
+.no-transition {
+  transition: none !important;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Container performance optimization */
+.performance-container {
+  contain: layout style paint;
+  will-change: contents;
+}
+
+/* ========================================
+   8. UTILITY CLASSES & RESPONSIVE
+   ======================================== */
+
+/* Utility classes and responsive adjustments can be added here as needed */

@@ -1,26 +1,4 @@
-/**
- * ========================================
- * THAILAND SPECTRUM CHART APPLICATION
- * ========================================
- * 
- * A comprehensive web application for visualizing Thailand's
- * National Frequency Allocation Chart and Unlicensed Frequency Table
- * 
- * Features:
- * - Interactive spectrum chart visualization using HTML5 Canvas
- * - Real-time frequency filtering and search capabilities
- * - Performance-optimized rendering with caching system
- * - Legend management with horizontal/vertical display modes
- * - Responsive design with mobile device detection
- * 
- * Version: 2.0 (Performance Optimized)
- * File Size: 2,326 lines of optimized JavaScript
- * Last Updated: 2025-01-21
- * Performance: O(n) complexity with lookup maps and caching
- * 
- * Browser Support: Chrome 80+, Firefox 75+, Safari 13+, Edge 80+
- * Dependencies: Bootstrap 5.0, jQuery 3.5.1, SheetJS xlsx.js
- */
+
 
 // Application Constants
 const APP_VERSION = '2.0';
@@ -65,7 +43,9 @@ const SpectrumChart = {
         applicationArrayFiltered: [],
         serviceArrayFiltered: [],
         frequencyLabelArray: [],
-        jsonArrayFiltered: []
+        jsonArrayFiltered: [],
+        footnoteArray: [],              // International footnote lookup data
+        footnoteArrayFiltered: []       // Filtered footnote data
     },
     
     // Performance optimization - Lookup maps and caches
@@ -74,6 +54,8 @@ const SpectrumChart = {
         rowLookupMap: new Map(),        // Map<row_id, array_of_items>
         stackLookupMap: new Map(),      // Map<stack_id, array_of_items>
         serviceIndexMap: new Map(),     // Map<service_name, array_of_indices>
+        footnoteIndexMap: new Map(),    // Map<footnote_number, footnote_detail>
+        thailandFootnoteIndexMap: new Map(), // Map<thailand_footnote_number, footnote_detail>
         
         // Cached calculations
         frequencyRangeCache: new Map(), // Map<row_id, {min, max}>
@@ -94,6 +76,13 @@ const SpectrumChart = {
         unselected: [],
         inputValue: "",
         toggleMode: "service"
+    },
+    
+    // Search state management
+    search: {
+        languageMode: "general",    // 'thai' | 'thailand' | 'general'
+        footnoteMode: false,        // true when in footnote-only search mode
+        frequencyRangeHidden: false // true when frequency range boxes are hidden
     },
     
     // UI state
@@ -120,17 +109,51 @@ const SpectrumChart = {
  * throughout the application.
  */
 
-// DOM Element Cache for performance optimization
+// DOM Element Cache optimized for instant response
 const DOMCache = {
     elements: {},
+    
     get: function(id) {
         if (!this.elements[id]) {
             this.elements[id] = document.getElementById(id);
         }
         return this.elements[id];
     },
+    
     clear: function() {
         this.elements = {};
+    },
+    
+    // Immediate class updates for instant visual feedback
+    updateClassesInstantly: function(selector, removeClasses, addClasses) {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(element => {
+            if (removeClasses && removeClasses.length > 0) {
+                element.classList.remove(...removeClasses);
+            }
+            if (addClasses && addClasses.length > 0) {
+                element.classList.add(...addClasses);
+            }
+        });
+        return elements.length; // Return count for feedback
+    },
+    
+    // Fast frequency box state updates
+    setFrequencyBoxState: function(elements, state) {
+        const stateClasses = {
+            box: ['box'],
+            highlight: ['highlight'],
+            fade: ['faddd'],
+            click: ['click']
+        };
+        
+        const removeClasses = ['box', 'highlight', 'faddd', 'click', 'thailand-highlighted'];
+        const addClasses = stateClasses[state] || ['box'];
+        
+        elements.forEach(element => {
+            element.classList.remove(...removeClasses);
+            element.classList.add(...addClasses);
+        });
     }
 };
 
@@ -179,7 +202,58 @@ const PerformanceUtils = {
             SpectrumChart.performance.serviceIndexMap.get(item.EngService).push(index);
         });
         
-        Logger.log(`Lookup maps built in ${(performance.now() - startTime).toFixed(2)}ms`);
+    },
+    
+    // Build footnote lookup map for O(1) footnote access
+    buildFootnoteLookupMap: function(footnoteData) {
+        const startTime = performance.now();
+        
+        // Clear existing footnote map
+        SpectrumChart.performance.footnoteIndexMap.clear();
+        
+        // Build footnote lookup map
+        footnoteData.forEach((footnote) => {
+            // Excel sheet has columns: "Number" and "Explaination"
+            if (footnote.Number && footnote.Explaination) {
+                SpectrumChart.performance.footnoteIndexMap.set(footnote.Number.toString().trim(), footnote.Explaination);
+            }
+        });
+        
+    },
+    
+    // Build Thailand footnote lookup map for O(1) footnote access
+    buildThailandFootnoteLookupMap: function(footnoteData) {
+        const startTime = performance.now();
+        
+        // Clear existing Thailand footnote map
+        SpectrumChart.performance.thailandFootnoteIndexMap.clear();
+        
+        // Build Thailand footnote lookup map
+        footnoteData.forEach((footnote) => {
+            // Excel sheet has columns: "Number" and "Explanation"
+            if (footnote.Number && footnote.Explanation) {
+                SpectrumChart.performance.thailandFootnoteIndexMap.set(footnote.Number.toString().trim(), footnote.Explanation);
+            }
+        });
+        
+    },
+    
+    // Get footnote detail by footnote number
+    getFootnoteDetail: function(footnoteNumber) {
+        const key = footnoteNumber.toString().trim();
+        const result = SpectrumChart.performance.footnoteIndexMap.get(key);
+        if (!result) {
+        }
+        return result || `Footnote ${footnoteNumber} not found`;
+    },
+    
+    // Get Thailand footnote detail by footnote number
+    getThailandFootnoteDetail: function(footnoteNumber) {
+        const key = footnoteNumber.toString().trim();
+        const result = SpectrumChart.performance.thailandFootnoteIndexMap.get(key);
+        if (!result) {
+        }
+        return result || `Thailand Footnote ${footnoteNumber} not found`;
     },
     
     // Cache frequency ranges to avoid repeated Math.min/max operations
@@ -215,7 +289,6 @@ const PerformanceUtils = {
             });
         });
         
-        Logger.log(`Frequency ranges cached in ${(performance.now() - startTime).toFixed(2)}ms`);
     },
     
     // Get row family using lookup map instead of filtering
@@ -248,7 +321,6 @@ const PerformanceUtils = {
         const start = SpectrumChart.performance[operation + '_start'];
         if (start) {
             const duration = performance.now() - start;
-            Logger.log(`${operation} completed in ${duration.toFixed(2)}ms`);
             return duration;
         }
         return 0;
@@ -283,6 +355,47 @@ const PerformanceUtils = {
         return report;
     },
     
+    // Intersection Observer for visibility-based performance optimization
+    intersectionObserver: null,
+    visibleElements: new Set(),
+    
+    // Initialize intersection observer for performance optimization
+    initIntersectionObserver: function() {
+        if (!this.intersectionObserver && 'IntersectionObserver' in window) {
+            this.intersectionObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const element = entry.target;
+                    if (entry.isIntersecting) {
+                        this.visibleElements.add(element);
+                        // Enable animations for visible elements
+                        element.style.willChange = 'transform, opacity, filter';
+                    } else {
+                        this.visibleElements.delete(element);
+                        // Disable animations for invisible elements to save resources
+                        element.style.willChange = 'auto';
+                    }
+                });
+            }, {
+                rootMargin: '50px', // Start loading 50px before element comes into view
+                threshold: 0.1 // Trigger when 10% of element is visible
+            });
+        }
+    },
+    
+    // Observe elements for visibility-based performance
+    observeElement: function(element) {
+        if (this.intersectionObserver && element) {
+            this.intersectionObserver.observe(element);
+        }
+    },
+    
+    // Unobserve elements
+    unobserveElement: function(element) {
+        if (this.intersectionObserver && element) {
+            this.intersectionObserver.unobserve(element);
+        }
+    },
+    
     // Clear performance caches for memory management
     clearCaches: function() {
         SpectrumChart.performance.rowLookupMap.clear();
@@ -292,7 +405,13 @@ const PerformanceUtils = {
         SpectrumChart.performance.stackRangeCache.clear();
         SpectrumChart.performance.bandwidthCache.clear();
         DOMCache.clear();
-        Logger.log('Performance caches cleared');
+        
+        // Clean up intersection observer
+        if (this.intersectionObserver) {
+            this.intersectionObserver.disconnect();
+            this.intersectionObserver = null;
+        }
+        this.visibleElements.clear();
     }
 };
 
@@ -321,13 +440,13 @@ window.clearPerformanceCaches = function() {
 };
 
 // Auto-performance monitoring every 10 seconds in development
-if (Logger.enabled) {
+if (DEBUG_MODE) {
     setInterval(function() {
         const report = PerformanceUtils.getPerformanceReport();
         if (report.memoryUsage.usedHeap !== 'N/A') {
             const heapMB = parseInt(report.memoryUsage.usedHeap);
             if (heapMB > 100) {
-                Logger.log(`⚠️  High memory usage detected: ${heapMB}MB`);
+                console.warn('High memory usage detected:', heapMB + 'MB');
             }
         }
     }, 10000);
@@ -400,6 +519,10 @@ async function ExceltoJson() {
             var data = new Uint8Array(xhr.response);
             var workbook = XLSX.read(data, { type: 'array' });
 
+            // Debug: Show all available sheets
+            workbook.SheetNames.forEach((sheetName, index) => {
+            });
+
             // Convert Sheet1 to JSON and store in the array
             var sheet1_name_list = workbook.SheetNames[SpectrumChart.sheets.index0];
             var sheet1 = XLSX.utils.sheet_to_json(workbook.Sheets[sheet1_name_list]);
@@ -412,13 +535,64 @@ async function ExceltoJson() {
             var sheet3_name_list = workbook.SheetNames[SpectrumChart.sheets.index2];
             var sheet3 = XLSX.utils.sheet_to_json(workbook.Sheets[sheet3_name_list]);
 
+            // Find and convert International_Footnote sheet
+            var sheet4 = [];
+            var footnoteSheetIndex = -1;
+            var footnoteSheetName = null;
+            
+            // Find and convert Thailand_Footnote sheet  
+            var sheet5 = [];
+            var thailandFootnoteSheetIndex = -1;
+            var thailandFootnoteSheetName = null;
+            
+            // Try to find both footnote sheets by name (case-insensitive)
+            workbook.SheetNames.forEach((sheetName, index) => {
+                if (sheetName.toLowerCase().includes('international') && 
+                    sheetName.toLowerCase().includes('footnote')) {
+                    footnoteSheetIndex = index;
+                    footnoteSheetName = sheetName;
+                } else if (sheetName.toLowerCase().includes('thailand') && 
+                           sheetName.toLowerCase().includes('footnote')) {
+                    thailandFootnoteSheetIndex = index;
+                    thailandFootnoteSheetName = sheetName;
+                } else if (sheetName.toLowerCase().includes('footnote') && 
+                          !footnoteSheetName && !thailandFootnoteSheetName) {
+                    // Fallback for generic footnote sheet
+                    footnoteSheetIndex = index;
+                    footnoteSheetName = sheetName;
+                }
+            });
+            
+            // Load International_Footnote sheet
+            if (footnoteSheetName) {
+                sheet4 = XLSX.utils.sheet_to_json(workbook.Sheets[footnoteSheetName]);
+                if (sheet4.length > 0) {
+                } else {
+                }
+            } else {
+            }
+            
+            // Load Thailand_Footnote sheet
+            if (thailandFootnoteSheetName) {
+                sheet5 = XLSX.utils.sheet_to_json(workbook.Sheets[thailandFootnoteSheetName]);
+                if (sheet5.length > 0) {
+                } else {
+                }
+            } else {
+            }
+            
+            if (!footnoteSheetName && !thailandFootnoteSheetName) {
+            }
 
             // Store the JSON data in the namespace
             SpectrumChart.data.colorArray = sheet2;
             SpectrumChart.data.colorArrayFiltered = SpectrumChart.data.colorArray;
             SpectrumChart.data.colorArrayApplication = sheet3;
             SpectrumChart.data.colorArrayApplicationFiltered = SpectrumChart.data.colorArrayApplication;
-            Logger.log("ApplicationArray ", SpectrumChart.data.applicationArray);
+            SpectrumChart.data.footnoteArray = sheet4;
+            SpectrumChart.data.footnoteArrayFiltered = SpectrumChart.data.footnoteArray;
+            SpectrumChart.data.thailandFootnoteArray = sheet5;
+            SpectrumChart.data.thailandFootnoteArrayFiltered = SpectrumChart.data.thailandFootnoteArray;
             for(var i=0; i<sheet1.length; i++){
                 SpectrumChart.data.jsonArray[i] = sheet1[i];
                 if (SpectrumChart.data.jsonArray[i].Application == undefined)  { SpectrumChart.data.jsonArray[i].Application = "x"; }
@@ -454,14 +628,14 @@ async function ExceltoJson() {
             // Build performance optimization structures
             PerformanceUtils.buildLookupMaps(SpectrumChart.data.jsonArray);
             PerformanceUtils.cacheFrequencyRanges(SpectrumChart.data.jsonArray);
+            PerformanceUtils.buildFootnoteLookupMap(SpectrumChart.data.footnoteArray);
+            PerformanceUtils.buildThailandFootnoteLookupMap(SpectrumChart.data.thailandFootnoteArray);
             
             plot(SpectrumChart.data.jsonArray);
             createServiceLegend(SpectrumChart.data.colorArray);
             createServiceLegendHorizontal(SpectrumChart.data.colorArray);
-            Logger.log(SpectrumChart.data.jsonArray);
 
         } else {
-            Logger.error('Failed to load Excel file:', xhr.statusText);
         }
     };
 
@@ -491,7 +665,6 @@ function displayOutput(data) {
  * @param {Array} data - Array of frequency allocation records
  */
 function normalizeFrequencyUnitToMHz(data) {
-    Logger.log("normalizeFrequencyUnitToMHz");
 
     for (var i = 0 ; i < data.length ; i++){ 
         //normalize freq unit
@@ -505,7 +678,6 @@ function normalizeFrequencyUnitToMHz(data) {
         data[i].Bandwidth = data[i].Stop_Frequency - data[i].Start_Frequency;
     }
     SpectrumChart.data.jsonArray = data;
-    Logger.log("end normalizeFrequencyUnitToMHz");
     CombineServiceAndDirectionToNewColumn(SpectrumChart.data.jsonArray);
 }
 
@@ -522,7 +694,6 @@ function CombineServiceAndDirectionToNewColumn(data) {
 
 
 function splitTextToArray(data) {
-    Logger.log("splitTextToArray");
 
     for (var i = 0 ; i < data.length ; i++){
         var text = data[i].Direction;
@@ -539,22 +710,27 @@ function splitTextToArray(data) {
         } else {
             data[i].International_Footnote = [];
         }
+
+        var thailandFootnoteText = data[i].Thailand_Footnote;
+        if (thailandFootnoteText != undefined) {
+            let splittedThailandFootnote = thailandFootnoteText.split(',');
+            data[i].Thailand_Footnote = splittedThailandFootnote;
+        } else {
+            data[i].Thailand_Footnote = [];
+        }
     }
     SpectrumChart.data.jsonArray = data;
-    Logger.log("end splitTextToArray");
 }
 
 
 
 function assignStackID(data) {
-    Logger.log("assignStackID");
 
     //sort order by start frequency
     var sorted_data = data.sort(function(a, b) {
         return a.Start_Frequency - b.Start_Frequency;
     });
 
-    Logger.log("sorted_data len = " + sorted_data.length);
     var stack_id = 0;
     var last_max_stopfreq = sorted_data[0].Stop_Frequency ;
     sorted_data[0].stack_id = stack_id;
@@ -581,11 +757,11 @@ function assignStackID(data) {
     }
 
     SpectrumChart.data.jsonArray = sorted_data;
-    Logger.log("End assignStackID");
 }
 
 
 function insertGap(data) {
+    if (!data || data.length === 0) return;
     var last_stackid = data[data.length-1].stack_id
     var gap_position = [];
     for(var i=0; i<last_stackid; i++){
@@ -605,7 +781,7 @@ function insertGap(data) {
 
 
 function assignRowID(data) {
-
+    if (!data || data.length === 0) return;
     var number_of_stacks = data[data.length-1].stack_id;
     var row_id = 0;
     var length_accum = 0;   // to find index of data array for each stack
@@ -653,6 +829,7 @@ function assignUniqueID(data){
 function sortStackMembers(data) {
     //sort order by Bandwidth in every stack
     var result = [];
+    if (!data || data.length === 0) return result;
     for(var i=0; i<=data[data.length-1].stack_id; i++){  // loop by the number of stacks e.g. 6 rounds for 6 stacks
         var family = getStackMembers(data, i);
         var sorted_family = family.sort(function(a, b) {
@@ -667,13 +844,26 @@ function sortStackMembers(data) {
 }
 
 
-function RowHeightScaler() {
-    var row_num = SpectrumChart.data.jsonArrayFiltered[SpectrumChart.data.jsonArrayFiltered.length-1].row_id + 1;
+function RowHeightScaler(data) {
+    // Use the passed data parameter or fallback to filtered data
+    var dataArray = data || SpectrumChart.data.jsonArrayFiltered;
+    
+    // Check if data exists and has elements
+    if (!dataArray || dataArray.length === 0) {
+        return 0.125; // Default factor when no data
+    }
+    
+    // Check if the last element has row_id property
+    var lastElement = dataArray[dataArray.length - 1];
+    if (!lastElement || typeof lastElement.row_id === 'undefined') {
+        return 0.125; // Default factor when row_id is not available
+    }
+    
+    var row_num = lastElement.row_id + 1;
     var factor = 0.25 / row_num;
     if (factor > 0.125) { factor = 0.125; }
     if (factor < 0.07) { factor = 0.07; }
 
-    Logger.log("factor "+factor);
     return factor;
 }
 
@@ -706,9 +896,10 @@ function FontSizeScaler(box_height,box_width,num_direction_charactor) {
 function plot(data){
     PerformanceUtils.startTimer('plot');
 
-    SpectrumChart.config.heightFactor = RowHeightScaler();
+    SpectrumChart.config.heightFactor = RowHeightScaler(data);
 
     var text ="";
+    if (!data || data.length === 0) return;
     var last_rowid = data[data.length-1].row_id;
     var length_accum = 0;
 
@@ -732,7 +923,6 @@ function plot(data){
         {
             // Only recalculate if gap detected (less common case)
             var row_family_without0 = row_family.slice(1);
-            Logger.log("Row family without gap:", row_family_without0);
             min_freq_row = Math.min(...row_family_without0.map(item => item.Start_Frequency));
             max_freq_row = Math.max(...row_family_without0.map(item => item.Stop_Frequency));
         }
@@ -845,15 +1035,48 @@ function plot(data){
                 if (Array.isArray(stack_member[k].International_Footnote) && stack_member[k].International_Footnote.length > 0) {
                    
                     for (var f = 0; f < stack_member[k].International_Footnote.length; f++) {
-                        var footnote = stack_member[k].International_Footnote[f];                             
-                        stack_member[k].International_Footnote[f] = '<span>' + footnote + '</span>';
+                        var footnote = stack_member[k].International_Footnote[f];
+                        
+                        // If footnote is "-", keep it as plain text, otherwise make it a clickable link
+                        // Check if it's already processed (contains HTML)
+                        if (footnote.trim() === "-") {
+                            stack_member[k].International_Footnote[f] = footnote;
+                        } else if (footnote.includes('class="footnote-link"')) {
+                            // Already processed, don't process again
+                            stack_member[k].International_Footnote[f] = footnote;
+                        } else {
+                            stack_member[k].International_Footnote[f] = '<span class="footnote-link" data-footnote="' + footnote + '" style="color: #007bff; cursor: pointer; text-decoration: underline; margin: 0 2px;">' + footnote + '</span>';
+                        }
                     }
                     
                 } else {
                     
                     stack_member[k].International_Footnote[f] = "-";
                 }
-                // ----------------------Add footnote link--------------------------
+                
+                // ----------------------Add Thailand footnote link---------------------------
+                if (Array.isArray(stack_member[k].Thailand_Footnote) && stack_member[k].Thailand_Footnote.length > 0) {
+                   
+                    for (var t = 0; t < stack_member[k].Thailand_Footnote.length; t++) {
+                        var thailandFootnote = stack_member[k].Thailand_Footnote[t];
+                        
+                        // If footnote is "-", keep it as plain text, otherwise make it a clickable link
+                        // Check if it's already processed (contains HTML)
+                        if (thailandFootnote.trim() === "-") {
+                            stack_member[k].Thailand_Footnote[t] = thailandFootnote;
+                        } else if (thailandFootnote.includes('class="thailand-footnote-link"')) {
+                            // Already processed, don't process again
+                            stack_member[k].Thailand_Footnote[t] = thailandFootnote;
+                        } else {
+                            stack_member[k].Thailand_Footnote[t] = '<span class="thailand-footnote-link" data-thailand-footnote="' + thailandFootnote + '" style="color: #28a745; cursor: pointer; text-decoration: underline; margin: 0 2px;">' + thailandFootnote + '</span>';
+                        }
+                    }
+                    
+                } else {
+                    
+                    stack_member[k].Thailand_Footnote[t] = "-";
+                }
+                // ----------------------Add Thailand footnote link--------------------------
                     
                     // '<span style="color:'+mapped_color+';">&#x2B23</span>'
                     var card_header = Start_Frequency_label + " - " + Stop_Frequency_label + " " + Stop_Frequency_Unit_label ;
@@ -862,7 +1085,10 @@ function plot(data){
 
 
                 
-                    text +=         '<span id="'+stack_member[k].id+'" class="box" data-content="'+card_header+'" data-detail="'+card_information+'" style="font-size:'+fontsize+'px; background-image: '+service_order_style+'; margin-left:'+offset_start_freq+'px; line-height:'+height+'px; height:'+height+'px; width:'+width+'px; background-color:'+mapped_color+';' ;
+                    // Escape HTML content for data attributes to prevent breaking HTML structure
+                    var escaped_card_information = card_information.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    
+                    text +=         '<span id="'+stack_member[k].id+'" class="box" data-content="'+card_header+'" data-detail="'+escaped_card_information+'" style="font-size:'+fontsize+'px; background-image: '+service_order_style+'; margin-left:'+offset_start_freq+'px; line-height:'+height+'px; height:'+height+'px; width:'+width+'px; background-color:'+mapped_color+';' ;
                 
         
                 if (stack_member[k].EngService == "gap")
@@ -1092,6 +1318,419 @@ function createServiceLegendHorizontal(colorArray) {
     }
 }
 
+/**
+ * ========================================
+ * FOOTNOTE LEGEND FUNCTIONS
+ * ========================================
+ */
+
+/**
+ * Create vertical footnote legend list
+ * @param {Array} footnotes - Array of footnote objects with number and detail
+ */
+function createFootnoteLegend(footnotes) {
+    var footnoteLegend = "";
+    
+    for (var i = 0; i < footnotes.length; i++) {
+        var footnote = footnotes[i];
+        var footnoteId = 'footnote-' + footnote.number.replace('.', '-');
+        const footnoteType = footnote.type || 'International';
+        const clickHandler = footnoteType === 'Thailand' ? 'showThailandFootnoteCardInCenter' : 'showFootnoteCardInCenter';
+        
+        footnoteLegend += '<span id="' + footnoteId + '" class="footnote-legend legend" style="display:flex;">';
+        footnoteLegend += '<span class="footnote-legend" onclick="' + clickHandler + '(\'' + footnote.number + '\')" style="display: inline-block; cursor: pointer; width: 100%;">';
+        footnoteLegend += '<span class="footnote-legend">' + footnoteType + ' Footnote ' + footnote.number + '</span>';
+        footnoteLegend += '</span>';
+        footnoteLegend += '</span>';
+    }
+    
+    DOMCache.get('Legend').innerHTML = footnoteLegend;
+}
+
+/**
+ * Create horizontal footnote legend list
+ * @param {Array} footnotes - Array of footnote objects with number and detail
+ */
+function createFootnoteLegendHorizontal(footnotes) {
+    var footnoteLegend = "";
+    
+    footnoteLegend += '<div id="Legend-horizontal" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">';
+    
+    for (var i = 0; i < footnotes.length; i++) {
+        var footnote = footnotes[i];
+        var footnoteId = 'footnote-hor-' + footnote.number.replace('.', '-');
+        const footnoteType = footnote.type || 'International';
+        const clickHandler = footnoteType === 'Thailand' ? 'showThailandFootnoteCardInCenter' : 'showFootnoteCardInCenter';
+        
+        footnoteLegend += '<div id="' + footnoteId + '" class="footnote-legend-hor legend-hor" style="display: inline-flex; align-items: center; cursor: pointer;" onclick="' + clickHandler + '(\'' + footnote.number + '\')">';
+        footnoteLegend += '<span class="footnote-legend-hor">' + footnoteType + ' Footnote ' + footnote.number + '</span>';
+        footnoteLegend += '</div>';
+    }
+    
+    footnoteLegend += "</div>";
+    
+    const horizontalLegend = DOMCache.get('Legend-horizontal');
+    if (horizontalLegend) {
+        horizontalLegend.innerHTML = footnoteLegend;
+    }
+    
+}
+
+/**
+ * Generate vertical footnote legend HTML string (for appending to existing content)
+ * @param {Array} footnotes - Array of footnote objects with number and detail
+ * @returns {string} HTML string for footnote legend
+ */
+function createFootnoteLegendHTML(footnotes) {
+    var footnoteLegend = "";
+    
+    for (var i = 0; i < footnotes.length; i++) {
+        var footnote = footnotes[i];
+        // Extract footnote number from object - handle different object structures
+        var footnoteNumber = footnote.displayNumber || footnote.number || footnote.Number || footnote;
+        
+        if (typeof footnoteNumber === 'object') {
+            footnoteNumber = footnoteNumber.number || footnoteNumber.displayNumber || JSON.stringify(footnoteNumber);
+        }
+        var footnoteId = 'footnote-' + (typeof footnoteNumber === 'string' ? footnoteNumber.replace('.', '-') : footnoteNumber);
+        const footnoteType = footnote.footnoteType === 'international' ? 'International' : footnote.type || 'International';
+        const clickHandler = footnoteType === 'Thailand' ? 'showThailandFootnoteCardInCenter' : 'showFootnoteCardInCenter';
+        
+        footnoteLegend += '<span id="' + footnoteId + '" class="footnote-legend legend" style="display:flex;">';
+        footnoteLegend += '<span class="footnote-legend" onclick="' + clickHandler + '(\'' + footnoteNumber + '\')" style="display: inline-block; cursor: pointer; width: 100%;">';
+        footnoteLegend += '<span class="footnote-legend">' + footnoteType + ' Footnote ' + footnoteNumber + '</span>';
+        footnoteLegend += '</span>';
+        footnoteLegend += '</span>';
+    }
+    
+    return footnoteLegend;
+}
+
+/**
+ * Generate horizontal footnote legend HTML string (for appending to existing content)
+ * @param {Array} footnotes - Array of footnote objects with number and detail  
+ * @returns {string} HTML string for horizontal footnote legend
+ */
+function createFootnoteLegendHorizontalHTML(footnotes) {
+    var footnoteLegend = "";
+    
+    for (var i = 0; i < footnotes.length; i++) {
+        var footnote = footnotes[i];
+        // Extract footnote number from object - handle different object structures
+        var footnoteNumber = footnote.displayNumber || footnote.number || footnote.Number || footnote;
+        
+        if (typeof footnoteNumber === 'object') {
+            footnoteNumber = footnoteNumber.number || footnoteNumber.displayNumber || JSON.stringify(footnoteNumber);
+        }
+        var footnoteId = 'footnote-hor-' + (typeof footnoteNumber === 'string' ? footnoteNumber.replace('.', '-') : footnoteNumber);
+        const footnoteType = footnote.footnoteType === 'international' ? 'International' : footnote.type || 'International';
+        const clickHandler = footnoteType === 'Thailand' ? 'showThailandFootnoteCardInCenter' : 'showFootnoteCardInCenter';
+        
+        footnoteLegend += '<div id="' + footnoteId + '" class="footnote-legend-hor legend-hor" style="display: inline-flex; align-items: center; cursor: pointer;" onclick="' + clickHandler + '(\'' + footnoteNumber + '\')">';
+        footnoteLegend += '<span class="footnote-legend-hor">' + footnoteType + ' Footnote ' + footnoteNumber + '</span>';
+        footnoteLegend += '</div>';
+    }
+    
+    return footnoteLegend;
+}
+
+/**
+ * Generate Thailand footnote legend HTML string for language-specific search results
+ * @param {Array} footnotes - Array of Thailand footnote objects with displayNumber and displayDescription
+ * @returns {string} HTML string for Thailand footnote legend
+ */
+function createThailandFootnoteLegendHTML(footnotes) {
+    var footnoteLegend = "";
+    
+    for (var i = 0; i < footnotes.length; i++) {
+        var footnote = footnotes[i];
+        var footnoteNumber = footnote.displayNumber || footnote.Number || 'N/A';
+        var footnoteId = 'thailand-footnote-' + String(footnoteNumber).replace('.', '-');
+        
+        footnoteLegend += '<span id="' + footnoteId + '" class="footnote-legend legend" style="display:flex;">';
+        footnoteLegend += '<span class="footnote-legend" onclick="showThailandFootnoteCardInCenter(\'' + footnoteNumber + '\')" style="display: inline-block; cursor: pointer; width: 100%;">';
+        footnoteLegend += '<span class="footnote-legend">Thailand Footnote ' + footnoteNumber + '</span>';
+        footnoteLegend += '</span>';
+        footnoteLegend += '</span>';
+    }
+    
+    return footnoteLegend;
+}
+
+/**
+ * Generate Thailand horizontal footnote legend HTML string for language-specific search results
+ * @param {Array} footnotes - Array of Thailand footnote objects with displayNumber and displayDescription
+ * @returns {string} HTML string for horizontal Thailand footnote legend
+ */
+function createThailandFootnoteLegendHorizontalHTML(footnotes) {
+    var footnoteLegend = "";
+    
+    for (var i = 0; i < footnotes.length; i++) {
+        var footnote = footnotes[i];
+        var footnoteNumber = footnote.displayNumber || footnote.Number || 'N/A';
+        var footnoteId = 'thailand-footnote-hor-' + String(footnoteNumber).replace('.', '-');
+        
+        footnoteLegend += '<div id="' + footnoteId + '" class="footnote-legend-hor legend-hor" style="display: inline-flex; align-items: center; cursor: pointer;" onclick="showThailandFootnoteCardInCenter(\'' + footnoteNumber + '\')">';
+        footnoteLegend += '<span class="footnote-legend-hor">Thailand Footnote ' + footnoteNumber + '</span>';
+        footnoteLegend += '</div>';
+    }
+    
+    return footnoteLegend;
+}
+
+/**
+ * Show footnote card in center of screen
+ * @param {string} footnoteNumber - The footnote number to display
+ */
+function showFootnoteCardInCenter(footnoteNumber) {
+    
+    // Instant fade effect for immediate visual response
+    DOMCache.updateClassesInstantly(
+        '.box, .highlight, .click', 
+        ['highlight', 'click', 'box'], 
+        ['faddd']
+    );
+    
+    const footnoteDetail = PerformanceUtils.getFootnoteDetail(footnoteNumber);
+    
+    // Check if card already exists for this footnote
+    const existingCard = document.querySelector('.center-footnote-card[data-footnote="' + footnoteNumber + '"]');
+    if (existingCard) {
+        // Bring existing card to front
+        bringToFront(existingCard);
+        return;
+    }
+    
+    const footnoteCard = document.createElement('div');
+    footnoteCard.className = 'custom-card footnote-card center-footnote-card';
+    footnoteCard.setAttribute('data-footnote', footnoteNumber);
+    
+    // Position in exact center of viewport
+    const centerX = (window.innerWidth / 2) - 200;  // Assuming 400px card width
+    const centerY = (window.innerHeight / 2) - 150; // Assuming 300px card height
+    
+    footnoteCard.style.position = 'fixed';
+    footnoteCard.style.left = `${centerX}px`;
+    footnoteCard.style.top = `${centerY}px`;
+    footnoteCard.style.zIndex = '1000';
+    footnoteCard.style.minWidth = '400px';
+    footnoteCard.style.maxWidth = '600px';
+    footnoteCard.style.border = '2px solid #007bff';
+    footnoteCard.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+    footnoteCard.style.backgroundColor = '#ffffff';
+    
+    footnoteCard.innerHTML = `
+        <div class="card-header" style="background-color: #007bff; color: white; font-weight: bold;">
+            <span>Footnote ${footnoteNumber}</span>
+            <div class="close-btn">×</div>
+        </div>
+        <div class="card-body" style="max-height: 300px; overflow-y: auto;">${footnoteDetail}</div>
+    `;
+    
+    const closeBtn = footnoteCard.querySelector('.close-btn');
+    closeBtn.addEventListener('click', () => {
+        footnoteCard.remove();
+    });
+    
+    // Make footnote card draggable
+    const header = footnoteCard.querySelector('.card-header');
+    let isDragging = false;
+    let offset = [0, 0];
+    
+    header.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        offset = [footnoteCard.offsetLeft - e.clientX, footnoteCard.offsetTop - e.clientY];
+        bringToFront(footnoteCard);
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            footnoteCard.style.left = `${e.clientX + offset[0]}px`;
+            footnoteCard.style.top = `${e.clientY + offset[1]}px`;
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+    
+    // Add to DOM and bring to front
+    document.getElementById('cards-container').appendChild(footnoteCard);
+    bringToFront(footnoteCard);
+    
+}
+
+/**
+ * Highlight frequency boxes based on Thailand footnote content
+ * @param {string} footnoteNumber - Thailand footnote number to check
+ */
+function highlightFrequencyBoxesByThailandFootnote(footnoteNumber) {
+    
+    // Get all frequency boxes
+    const allFrequencyBoxes = document.querySelectorAll('.box, .highlight, .click, .faddd');
+    
+    
+    
+    const frequencyDataWithFootnote = SpectrumChart.data.jsonArray.filter(entry => {
+        let hasFootnote = false;
+        
+        if (entry.Thailand_Footnote) {
+            // The Thailand_Footnote contains HTML with data-thailand-footnote attributes
+            const footnoteStr = String(entry.Thailand_Footnote);
+            
+            
+            // Extract footnote names from data-thailand-footnote attributes
+            // Try multiple regex patterns to handle different quote formats
+            const regexPatterns = [
+                /data-thailand-footnote="([^"]+)"/g,  // Normal quotes
+                /data-thailand-footnote='([^']+)'/g,  // Single quotes
+                /data-thailand-footnote=&quot;([^&]+)&quot;/g,  // HTML encoded
+            ];
+            
+            const footnotes = [];
+            for (const regex of regexPatterns) {
+                let match;
+                while ((match = regex.exec(footnoteStr)) !== null) {
+                    footnotes.push(match[1]);
+                }
+            }
+            
+            // Check if our target footnote is in the list (with trimmed comparison for safety)
+            hasFootnote = footnotes.some(footnote => footnote.trim() === footnoteNumber.trim());
+            
+        }
+        
+        return hasFootnote;
+    });
+    
+    // Get the unique IDs of frequency boxes that should be highlighted
+    const idsToHighlight = new Set();
+    frequencyDataWithFootnote.forEach(entry => {
+        // The frequency boxes use array indices as IDs, so we need to find the index
+        const entryIndex = SpectrumChart.data.jsonArray.indexOf(entry);
+        if (entryIndex !== -1) {
+            // Convert to string to match DOM element IDs
+            idsToHighlight.add(String(entryIndex));
+        }
+    });
+    
+    // If no IDs found, try using alternative matching approach
+    if (idsToHighlight.size === 0 && frequencyDataWithFootnote.length > 0) {
+        // Try to find matching boxes by checking if the box ID exists in our data
+        frequencyDataWithFootnote.forEach(entry => {
+            // Check various possible ID patterns
+            const possibleIds = [
+                entry.Start_Frequency + '-' + entry.Stop_Frequency,
+                entry.EngService,
+                entry.Start_Frequency + '_' + entry.EngService,
+            ];
+            
+            possibleIds.forEach(possibleId => {
+                if (possibleId && document.getElementById(possibleId)) {
+                    idsToHighlight.add(String(possibleId));
+                }
+            });
+        });
+    }
+    
+    // Ultra-fast DOM updates for immediate visual response
+    // Separate elements into highlight and fade groups for batch processing
+    const elementsToHighlight = [];
+    const elementsToFade = [];
+    
+    allFrequencyBoxes.forEach((box) => {
+        if (idsToHighlight.has(box.id)) {
+            elementsToHighlight.push(box);
+        } else {
+            elementsToFade.push(box);
+        }
+    });
+    
+    // Apply states instantly using optimized methods
+    DOMCache.setFrequencyBoxState(elementsToHighlight, 'highlight');
+    elementsToHighlight.forEach(box => box.classList.add('thailand-highlighted'));
+    
+    DOMCache.setFrequencyBoxState(elementsToFade, 'fade');
+    
+}
+
+/**
+ * Show Thailand footnote card in center of screen
+ * @param {string} footnoteNumber - The Thailand footnote number to display
+ */
+function showThailandFootnoteCardInCenter(footnoteNumber) {
+    
+    // Enhanced frequency box highlighting based on Thailand footnote content
+    highlightFrequencyBoxesByThailandFootnote(footnoteNumber);
+    
+    const footnoteDetail = PerformanceUtils.getThailandFootnoteDetail(footnoteNumber);
+    
+    // Check if card already exists for this footnote
+    const existingCard = document.querySelector('.center-footnote-card[data-thailand-footnote="' + footnoteNumber + '"]');
+    if (existingCard) {
+        // Bring existing card to front
+        bringToFront(existingCard);
+        return;
+    }
+    
+    const footnoteCard = document.createElement('div');
+    footnoteCard.className = 'custom-card footnote-card center-footnote-card thailand-footnote-card';
+    footnoteCard.setAttribute('data-thailand-footnote', footnoteNumber);
+    
+    // Position in exact center of viewport
+    const centerX = window.innerWidth / 2 - 200; // 400px card width / 2
+    const centerY = window.innerHeight / 2 - 100; // Approximate card height / 2
+    
+    footnoteCard.style.position = 'fixed';
+    footnoteCard.style.left = `${centerX}px`;
+    footnoteCard.style.top = `${centerY}px`;
+    footnoteCard.style.zIndex = '1000';
+    footnoteCard.style.minWidth = '400px';
+    footnoteCard.style.border = '2px solid #28a745';
+    footnoteCard.style.backgroundColor = '#f8ffe8';
+    footnoteCard.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+    
+    footnoteCard.innerHTML = `
+        <div class="card-header" style="background-color: #28a745; color: white; font-weight: bold;">
+            <span>${footnoteNumber}</span>
+            <div class="close-btn">×</div>
+        </div>
+        <div class="card-content">${footnoteDetail}</div>
+    `;
+    
+    const closeBtn = footnoteCard.querySelector('.close-btn');
+    closeBtn.addEventListener('click', () => {
+        footnoteCard.remove();
+    });
+    
+    // Make Thailand footnote card draggable
+    const header = footnoteCard.querySelector('.card-header');
+    let isDragging = false;
+    let offset = [0, 0];
+    
+    header.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        offset = [footnoteCard.offsetLeft - e.clientX, footnoteCard.offsetTop - e.clientY];
+        bringToFront(footnoteCard);
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            footnoteCard.style.left = `${e.clientX + offset[0]}px`;
+            footnoteCard.style.top = `${e.clientY + offset[1]}px`;
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+    
+    // Add to DOM and bring to front
+    document.getElementById('cards-container').appendChild(footnoteCard);
+    bringToFront(footnoteCard);
+    
+}
+
 
 
 function createApplicationLegend(application_legend_array) {
@@ -1103,7 +1742,7 @@ function createApplicationLegend(application_legend_array) {
 }
 
 function assignGapFrequencyLabel(data) {
-
+    if (!data || data.length === 0) return;
     for (var i=0; i<=data[data.length-1].row_id; i++) 
     {
         const row_family = data.filter(word => word.row_id == i);
@@ -1235,8 +1874,6 @@ function onclickChart(clickedElement){
 function onclickLegend(clickedElement){
 
     var clicked_elementId = clickedElement.id;
-    Logger.log("________________________");
-    Logger.log("clicked_elementId: "+clicked_elementId);
     // var temp_elementId_direction = clickedElement.id;
     var separated_string_array = clicked_elementId.split("*");
     var elementId = separated_string_array[0].replace(/\s/g, "_");
@@ -1268,9 +1905,7 @@ function onclickLegend(clickedElement){
         }
     }
     else {    //if click on service legend
-        Logger.log("click on service name");
         if(SpectrumChart.legend.selected.includes(elementId)){    // service is already selected
-          Logger.log("click on service"); 
             SpectrumChart.legend.selected = SpectrumChart.legend.selected.filter(item => item !== elementId);  // remove the service id from the global array
             var unselected_legend_direction = [];
             var separated_direction ;
@@ -1300,33 +1935,9 @@ function onclickLegend(clickedElement){
         }
     }
 
-    Logger.log("elementId: "+elementId);
-    Logger.log("direction id: "+elementId_direction);
-
-    Logger.log("SelectedLegend: "+SpectrumChart.legend.selected);
-    Logger.log("SelectedLegendDirection: "+SpectrumChart.legend.selectedDirection);
-    Logger.log("________________________");
-
-    // var All_element_id = [];
-
-    // for(var i=0; i<jsonDataArray_filtered.length; i++){
-    //     All_element_id[i]=jsonDataArray_filtered[i].id;
-    // }
-
-    
-    // console.log(ServiceArray_filtered);
-    // console.log(colorArray_filtered);
-    
-    // var ServiceArray_filtered =[];
-    // for(var i = 0; i < colorArray_filtered.length; i++){
-    //     ServiceArray_filtered[i] = colorArray_filtered[i].Service;
-    // }
-
-    // unselected_legend = ServiceArray_filtered.filter(element => !SelectedLegend.includes(element));
 
 
-    // toggleClassesbyID(SelectedLegend, "legend-checked");
-    // toggleClassesbyID(unselected_legend, "legend");
+
 
     // for data
     var set = new Set([...SpectrumChart.legend.selected, ...SpectrumChart.legend.selectedDirection]); // union both arrays
@@ -1339,7 +1950,6 @@ function onclickLegend(clickedElement){
         }
     }
 
-    Logger.log(selected_service_and_direction);
 
     var selected_data = [];
     var unselected_data = [];
@@ -1354,30 +1964,11 @@ function onclickLegend(clickedElement){
     
     // for no service is selected but still perform search
     if ((SpectrumChart.legend.inputValue != "") && (SpectrumChart.legend.selected.length == 0)){
-        Logger.log(SpectrumChart.data.serviceArrayFiltered);
         selected_data = SpectrumChart.data.jsonArrayFiltered.filter(item => SpectrumChart.data.serviceArrayFiltered.includes(item.EngService));
         unselected_data = SpectrumChart.data.jsonArrayFiltered.filter(item => !SpectrumChart.data.serviceArrayFiltered.includes(item.EngService));
 console.log("YES");
     }
-    // //hereeeeee
-    //     ServiceArray_filtered = [];
-    //     for (var i=0; i < colorArray_filtered.length ; i++){
-    //         ServiceArray_filtered[i] = colorArray_filtered[i].Service;
-    //     }
-    //     // selected_data = jsonDataArray_filtered.filter(item => ServiceArray_filtered.includes(item.EngService));
-    //     // unselected_data = jsonDataArray_filtered.filter(item => !ServiceArray_filtered.includes(item.EngService));
-    //     selected_data, unselected_data  = filterAndPartitionData(jsonDataArray_filtered, 'Service_and_direction', ServiceArray_filtered);
-    //     selected_data = unselected_data.filteredData;
-    //     unselected_data = unselected_data.unfilteredData;
-    // }
 
-
-    // console.log(SelectedLegend);
-    // console.log(unselected_legend);
-    // console.log(SelectedLegendDirection);
-
-    // console.log(selected_data);
-    // console.log(unselected_data);
 
     var selected_data_id =[];
     for(var i = 0; i < selected_data.length; i++){
@@ -1401,70 +1992,6 @@ console.log("YES");
 
     
     
-    // 
-    // Toggle between currentClass and newClass
-    // if (element.classList.contains("legend")) {
-    //     element.classList.remove("legend");
-    //     element.classList.add("legend-checked");
-        
-    // }
-    // else {
-    //     element.classList.remove("legend-checked");
-    //     element.classList.add("legend");
-    // }
-
-    // if (element_direction.classList.contains("legend-direction")) {
-    //     element_direction.classList.remove("legend-direction");
-    //     element_direction.classList.add("legend-direction-clicked");
-    // }
-    // else {
-    //     element_direction.classList.remove("legend-direction-clicked");
-    //     element_direction.classList.add("legend-direction");
-    // }
-
-
-    
-//     var elementsWithClassclicked = document.getElementsByClassName("legend-checked");
-//     var elementsWithClassUnclicked = document.getElementsByClassName("legend");
-    
-//     // Extract IDs and log them
-//     var selected_legend = Array.from(elementsWithClassclicked).map(element => element.id);
-//     var unselected_legend = Array.from(elementsWithClassUnclicked).map(element => element.id);
-// // console.log(selected_legend);
-
-//     if (SpectrumChart.legend.toggleMode == "service") { 
-//         var legend_type = "EngService";
-//         if (selected_legend.length == 0 ) {
-//             selected_legend = ServiceArray_filtered;
-//         }
-//     }
-//     else {
-//         var legend_type = "Application";
-//         if (selected_legend.length == 0 ) {
-//             selected_legend = ApplicationArray_filtered;
-//         }
-//     }
-
-//     var selected_data = FilterDataByAttribute(jsonDataArray_filtered, legend_type, selected_legend)
-//     // var unselected_data = FilterDataByAttribute(jsonDataArray_filtered, legend_type, unselected_legend)
-//     var unselected_data = jsonDataArray_filtered.filter(element => !selected_data.includes(element));
-
-// console.log(unselected_data);
-
-//     if(selected_data.length != 0){
-//         toggleClasses(selected_data, "highlight");
-//         toggleClasses(unselected_data, "faddd");
-//     }
-//     else{
-//         if (inputValue_legend != ""){
-//             selected_data = FilterDataByAttribute(jsonDataArray_filtered, legend_type, ServiceArray_filtered)
-//             unselected_legend = jsonDataArray_filtered.filter(value => !ServiceArray_filtered.includes(value));
-//             unselected_data = FilterDataByAttribute(jsonDataArray_filtered, legend_type, unselected_legend)
-//             toggleClasses(selected_data, "highlight");
-//             toggleClasses(unselected_data, "faddd");
-//         }
-//         else {toggleClasses(jsonDataArray_filtered, "box") }
-//     }
 }
 
   
@@ -1580,7 +2107,6 @@ function logInput() {
         return; // Exit the function
     }
 
-    Logger.log(SpectrumChart.legend.inputValue);
     
 }
 
@@ -1609,12 +2135,464 @@ function resetTimer() {
  */
 
 /**
+ * ========================================
+ * FOOTNOTE SEARCH FUNCTIONS
+ * ========================================
+ */
+
+/**
+ * Detect search language and determine search type
+ * @param {string} searchTerm - Search query string
+ * @returns {string} 'thai' | 'thailand' | 'general'
+ */
+function detectSearchLanguage(searchTerm) {
+    if (!searchTerm || searchTerm.trim() === '') return 'general';
+    
+    const trimmedSearch = searchTerm.trim().toLowerCase();
+    
+    // Thai Unicode range: U+0E00-U+0E7F (Thai characters)
+    const thaiPattern = /[\u0E00-\u0E7F]/;
+    
+    if (thaiPattern.test(trimmedSearch)) {
+        return 'thai';
+    } else if (trimmedSearch === 't' || trimmedSearch.startsWith('t-') || trimmedSearch.startsWith('timt') || trimmedSearch.startsWith('tfixed')) {
+        // Only trigger Thailand mode for very specific patterns:
+        // - Just "t" (show all Thailand footnotes starting with T)
+        // - "t-" prefix (Thailand footnote pattern like "T-IMT")  
+        // - Known Thailand-specific terms like "timt", "tfixed"
+        return 'thailand';
+    } else {
+        return 'general';
+    }
+}
+
+/**
+ * Hide frequency range input boxes and fade all frequency rectangles
+ */
+function hideFrequencyRangeDisplay() {
+    // Hide frequency range input controls
+    const startFreqInput = DOMCache.get('inputBox_StartFrequency');
+    const stopFreqInput = DOMCache.get('inputBox_StopFrequency');
+    const unitDropdown = DOMCache.get('unit_dropdown');
+    const labels = document.querySelectorAll('.frequency-search-container label');
+    
+    if (startFreqInput) startFreqInput.style.display = 'none';
+    if (stopFreqInput) stopFreqInput.style.display = 'none';
+    if (unitDropdown) unitDropdown.style.display = 'none';
+    labels.forEach(label => label.style.display = 'none');
+    
+    // For Thailand footnote search mode, keep frequency boxes as normal "box" class
+    // They will be highlighted/faded when specific footnotes are clicked
+    const allFrequencyBoxes = document.querySelectorAll('.highlight, .click, .faddd');
+    allFrequencyBoxes.forEach(box => {
+        box.classList.remove('highlight', 'click', 'faddd');
+        box.classList.add('box');
+    });
+    
+    SpectrumChart.search.frequencyRangeHidden = true;
+}
+
+/**
+ * Restore frequency range input boxes and normal frequency rectangle display
+ */
+function restoreFrequencyRangeDisplay() {
+    // Show frequency range input controls
+    const startFreqInput = DOMCache.get('inputBox_StartFrequency');
+    const stopFreqInput = DOMCache.get('inputBox_StopFrequency');
+    const unitDropdown = DOMCache.get('unit_dropdown');
+    const labels = document.querySelectorAll('.frequency-search-container label');
+    
+    if (startFreqInput) startFreqInput.style.display = '';
+    if (stopFreqInput) stopFreqInput.style.display = '';
+    if (unitDropdown) unitDropdown.style.display = '';
+    labels.forEach(label => label.style.display = '');
+    
+    // Restore normal frequency rectangle display
+    const allFrequencyBoxes = document.querySelectorAll('.faddd');
+    allFrequencyBoxes.forEach(box => {
+        box.classList.remove('faddd');
+        box.classList.add('box');
+    });
+    
+    SpectrumChart.search.frequencyRangeHidden = false;
+}
+
+/**
+ * Display only footnote results for language-specific searches
+ * @param {Array} footnoteMatches - Array of matching footnote objects
+ * @param {string} footnoteType - Type of footnotes ('international' or 'thailand')
+ */
+function displayFootnoteOnlyResults(footnoteMatches, footnoteType) {
+    // Clear all existing legends
+    clearAllLegends();
+    
+    // Display only footnote legend based on type
+    if (footnoteType === 'international') {
+        const legendHTML = createFootnoteLegendHTML(footnoteMatches);
+        DOMCache.get('Legend').innerHTML = legendHTML;
+        
+        // For horizontal legend
+        const horizontalLegend = document.querySelector('#Legend-horizontal');
+        if (horizontalLegend) {
+            horizontalLegend.innerHTML = createFootnoteLegendHorizontalHTML(footnoteMatches);
+        }
+    } else if (footnoteType === 'thailand') {
+        const legendHTML = createThailandFootnoteLegendHTML(footnoteMatches);
+        DOMCache.get('Legend').innerHTML = legendHTML;
+        
+        // For horizontal legend
+        const horizontalLegend = document.querySelector('#Legend-horizontal');
+        if (horizontalLegend) {
+            horizontalLegend.innerHTML = createThailandFootnoteLegendHorizontalHTML(footnoteMatches);
+        }
+    }
+    
+}
+
+/**
+ * Clear all legend displays
+ */
+function clearAllLegends() {
+    DOMCache.get('Legend').innerHTML = '';
+    const horizontalLegend = document.querySelector('#Legend-horizontal');
+    if (horizontalLegend) {
+        horizontalLegend.innerHTML = '';
+    }
+}
+
+/**
+ * Enhanced findFootnotesByText with type filtering support
+ * @param {string} searchText - Text to search for
+ * @param {string} footnoteType - Optional type filter ('international', 'thailand', or undefined for both)
+ * @returns {Array} Array of matching footnote objects with type information
+ */
+function findFootnotesByText(searchText, footnoteType = undefined) {
+    if (!searchText || searchText.trim() === '') return [];
+    
+    const searchLower = searchText.toLowerCase();
+    const matches = [];
+    
+    // Search International footnotes if not specifically filtering for Thailand footnotes
+    if (!footnoteType || footnoteType === 'international') {
+        if (SpectrumChart.data.footnoteArray && SpectrumChart.data.footnoteArray.length > 0) {
+            SpectrumChart.data.footnoteArray.forEach(footnote => {
+                const description = String(footnote.Explaination || footnote.Description || '').toLowerCase();
+                const number = String(footnote.Number || footnote['Footnote number'] || '').toLowerCase();
+                
+                // Enhanced search: remove special characters and spaces for flexible matching
+                // This allows "timt" to match "T-IMT", "mobilesatellite" to match "Mobile Satellite", etc.
+                const normalizedDescription = description.replace(/[-\s_\.]/g, '');
+                const normalizedNumber = number.replace(/[-\s_\.]/g, '');
+                const normalizedSearch = searchLower.replace(/[-\s_\.]/g, '');
+                
+                // Check both original and normalized versions for flexible matching
+                const descriptionMatch = description.includes(searchLower) || normalizedDescription.includes(normalizedSearch);
+                const numberMatch = number.includes(searchLower) || normalizedNumber.includes(normalizedSearch);
+                
+                if (descriptionMatch || numberMatch) {
+                    matches.push({
+                        ...footnote,
+                        footnoteType: 'international',
+                        displayNumber: footnote.Number || footnote['Footnote number'],
+                        displayDescription: footnote.Explaination || footnote.Description
+                    });
+                }
+            });
+        }
+    }
+    
+    // Search Thailand footnotes if not specifically filtering for International footnotes
+    if (!footnoteType || footnoteType === 'thailand') {
+        if (SpectrumChart.data.thailandFootnoteArray && SpectrumChart.data.thailandFootnoteArray.length > 0) {
+            if (SpectrumChart.data.thailandFootnoteArray.length > 0) {
+            }
+            
+            let matchCount = 0;
+            
+            SpectrumChart.data.thailandFootnoteArray.forEach(footnote => {
+                const description = String(footnote.Explaination || footnote.Explanation || footnote.Description || '').toLowerCase();
+                const number = String(footnote.Number || footnote['Footnote number'] || '').toLowerCase();
+                
+                // Enhanced search: remove special characters and spaces for flexible matching
+                // This allows "timt" to match "T-IMT", "tdigitalradio" to match "T-Digital Radio", etc.
+                const normalizedDescription = description.replace(/[-\s_\.]/g, '');
+                const normalizedNumber = number.replace(/[-\s_\.]/g, '');
+                const normalizedSearch = searchLower.replace(/[-\s_\.]/g, '');
+                
+                
+                // Enhanced matching logic
+                let match = false;
+                let matchReason = '';
+                
+                if (searchLower === 't') {
+                    // For single "t", only match footnotes that START with "T"
+                    if (number.startsWith('t') || description.startsWith('t')) {
+                        match = true;
+                        matchReason = 'startsWithT';
+                    }
+                } else {
+                    // For longer searches like "timt", use flexible matching
+                    const descriptionMatch = description.includes(searchLower) || normalizedDescription.includes(normalizedSearch);
+                    const numberMatch = number.includes(searchLower) || normalizedNumber.includes(normalizedSearch);
+                    
+                    if (descriptionMatch || numberMatch) {
+                        match = true;
+                        matchReason = descriptionMatch ? 'description' : 'number';
+                    }
+                }
+                
+                if (match) {
+                    matchCount++;
+                    const displayNumber = footnote.Number;  // Use exact column name from Excel
+                    const displayDescription = footnote.Explaination;  // Use exact column name from Excel
+                    
+                    
+                    matches.push({
+                        ...footnote,
+                        footnoteType: 'thailand',
+                        displayNumber: displayNumber,
+                        displayDescription: displayDescription
+                    });
+                }
+            });
+            
+        } else {
+        }
+    }
+    
+    
+    // Debug: Show first few matches
+    if (matches.length > 0) {
+        matches.slice(0, 5).forEach((match, index) => {
+        });
+    }
+    
+    return matches;
+}
+
+/**
+ * Check if search term contains footnote number pattern
+ * @param {string} searchTerm - Search query string
+ * @returns {boolean} True if contains footnote pattern
+ */
+function containsFootnotePattern(searchTerm) {
+    if (!searchTerm || searchTerm.trim() === '') return false;
+    // Detect footnote patterns: "5", "5.1", "5.123", etc.
+    const footnotePattern = /\d+\.?\d*/;
+    return footnotePattern.test(searchTerm.trim());
+}
+
+/**
+ * Find matching footnotes based on search term (searches both numbers and descriptions)
+ * @param {string} searchTerm - Search query string
+ * @returns {Array} Array of matching footnote objects
+ */
+function findMatchingFootnotes(searchTerm) {
+    const matches = [];
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    // Search International footnotes
+    SpectrumChart.performance.footnoteIndexMap.forEach((detail, number) => {
+        // Search in footnote number
+        const numberMatch = number.toLowerCase().includes(searchLower);
+        
+        // Search in footnote description text
+        const textMatch = detail && detail.toLowerCase().includes(searchLower);
+        
+        if (numberMatch || textMatch) {
+            matches.push({
+                number: number,
+                detail: detail,
+                type: 'International'
+            });
+        }
+    });
+    
+    // Search Thailand footnotes
+    SpectrumChart.performance.thailandFootnoteIndexMap.forEach((detail, number) => {
+        // Search in footnote number
+        const numberMatch = number.toLowerCase().includes(searchLower);
+        
+        // Search in footnote description text
+        const textMatch = detail && detail.toLowerCase().includes(searchLower);
+        
+        if (numberMatch || textMatch) {
+            matches.push({
+                number: number,
+                detail: detail,
+                type: 'Thailand'
+            });
+        }
+    });
+    
+    // Sort footnotes numerically
+    return matches.sort((a, b) => {
+        const numA = parseFloat(a.number);
+        const numB = parseFloat(b.number);
+        return numA - numB;
+    });
+}
+
+/**
+ * Find footnotes by text search (for any text, not just numbers)
+ * @param {string} searchTerm - Search query string
+ * @returns {Array} Array of matching footnote objects
+ */
+function findFootnotesByTextLegacy(searchTerm) {
+    const matches = [];
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    // Skip empty searches
+    if (!searchLower) return matches;
+    
+    // Search International footnotes by text
+    SpectrumChart.performance.footnoteIndexMap.forEach((detail, number) => {
+        // Only search in footnote description text for text-based searches
+        if (detail && detail.toLowerCase().includes(searchLower)) {
+            matches.push({
+                number: number,
+                detail: detail,
+                type: 'International'
+            });
+        }
+    });
+    
+    // Search Thailand footnotes by text
+    SpectrumChart.performance.thailandFootnoteIndexMap.forEach((detail, number) => {
+        // Only search in footnote description text for text-based searches
+        if (detail && detail.toLowerCase().includes(searchLower)) {
+            matches.push({
+                number: number,
+                detail: detail,
+                type: 'Thailand'
+            });
+        }
+    });
+    
+    // Sort footnotes numerically
+    return matches.sort((a, b) => {
+        const numA = parseFloat(a.number);
+        const numB = parseFloat(b.number);
+        return numA - numB;
+    });
+}
+
+/**
+ * Perform footnote search and display footnote legend
+ * @param {string} searchTerm - Search query string
+ */
+function performFootnoteSearch(searchTerm) {
+    
+    // Clear current legend
+    removeElementsByIds(SpectrumChart.data.serviceArray);
+    
+    // Find matching footnotes
+    const matchingFootnotes = findMatchingFootnotes(searchTerm);
+    
+    // Create footnote legend list
+    if (matchingFootnotes.length > 0) {
+        createFootnoteLegend(matchingFootnotes);
+        createFootnoteLegendHorizontal(matchingFootnotes);
+    } else {
+    }
+}
+
+/**
  * Perform real-time search and filtering on legend items
  * @param {string} inputValue_legend - Search query string
  * Optimized with single-pass filtering and Set operations
  */
 function PerformSearch(inputValue_legend) {
     PerformanceUtils.startTimer('PerformSearch');
+    
+    // If search is empty, restore frequency range display and exit footnote mode
+    if (!inputValue_legend || inputValue_legend.trim() === '') {
+        SpectrumChart.search.footnoteMode = false;
+        restoreFrequencyRangeDisplay();
+        
+        // Clear any search-related selections and restore normal state
+        SpectrumChart.legend.selected = [];
+        SpectrumChart.legend.selectedDirection = [];
+        
+        // Restore normal service legend display
+        if (SpectrumChart.data.colorArray && SpectrumChart.data.colorArray.length > 0) {
+            createServiceLegend(SpectrumChart.data.colorArray);
+            createServiceLegendHorizontal(SpectrumChart.data.colorArray);
+        }
+        
+        PerformanceUtils.endTimer('PerformSearch');
+        return;
+    }
+    
+    // Detect search language and set appropriate search mode
+    const languageMode = detectSearchLanguage(inputValue_legend);
+    SpectrumChart.search.languageMode = languageMode;
+    
+    
+    // Handle language-specific search behavior
+    if (languageMode === 'thai') {
+        // Thai language → search International footnotes only, hide frequency range
+        SpectrumChart.search.footnoteMode = true;
+        hideFrequencyRangeDisplay();
+        
+        // Search only International footnotes for Thai text
+        const internationalFootnoteMatches = findFootnotesByText(inputValue_legend, 'international');
+        if (internationalFootnoteMatches.length > 0) {
+            displayFootnoteOnlyResults(internationalFootnoteMatches, 'international');
+        } else {
+            // No matches found, show empty results
+            clearAllLegends();
+        }
+        PerformanceUtils.endTimer('PerformSearch');
+        return;
+        
+    } else if (languageMode === 'thailand') {
+        // English starting with 't' → search Thailand footnotes only, hide frequency range
+        SpectrumChart.search.footnoteMode = true;
+        hideFrequencyRangeDisplay();
+        
+        // Search only Thailand footnotes for English 't' prefix
+        
+        // Special handling: if just "t", show all Thailand footnotes that start with "T"
+        // If longer term like "timt", search for partial matches
+        let searchTerm = inputValue_legend.toLowerCase();
+        if (searchTerm === 't') {
+            // Show all Thailand footnotes that start with "T"
+            searchTerm = 't'; // This will match footnotes starting with T
+        }
+        
+        const thailandFootnoteMatches = findFootnotesByText(searchTerm, 'thailand');
+        if (thailandFootnoteMatches.length > 0) {
+            displayFootnoteOnlyResults(thailandFootnoteMatches, 'thailand');
+        } else {
+            // No matches found, show empty results but also show debug info
+            if (SpectrumChart.data.thailandFootnoteArray && SpectrumChart.data.thailandFootnoteArray.length > 0) {
+                SpectrumChart.data.thailandFootnoteArray.forEach((footnote, index) => {
+                    if (index < 5) { // Show first 5 for debugging
+                    }
+                });
+            }
+            clearAllLegends();
+        }
+        PerformanceUtils.endTimer('PerformSearch');
+        return;
+        
+    } else {
+        // General search mode - ensure frequency range is always visible
+        restoreFrequencyRangeDisplay();
+        SpectrumChart.search.footnoteMode = false;
+    }
+    
+    // Check if searching for footnote numbers (exclusive footnote search)
+    if (containsFootnotePattern(inputValue_legend)) {
+        performFootnoteSearch(inputValue_legend);
+        PerformanceUtils.endTimer('PerformSearch');
+        return; // Skip regular service/application search
+    }
+    
+    // Check if there are any footnote text matches for regular text searches
+    const footnoteMatches = findFootnotesByTextLegacy(inputValue_legend);
+    let hasFootnoteMatches = footnoteMatches.length > 0;
     
     cards = [];
     cardheight = 0;
@@ -1669,20 +2647,27 @@ function PerformSearch(inputValue_legend) {
         removeElementsByIds(SpectrumChart.data.serviceArray);
         createServiceLegend(SpectrumChart.data.colorArrayFiltered);
         createServiceLegendHorizontal(SpectrumChart.data.colorArrayFiltered);
+        
+        // Add footnote results if any text matches found
+        if (hasFootnoteMatches) {
+            // Append footnote legend to existing service legend
+            const currentLegend = DOMCache.get('Legend').innerHTML;
+            DOMCache.get('Legend').innerHTML = currentLegend + createFootnoteLegendHTML(footnoteMatches);
+            
+            // For horizontal legend, append to existing content  
+            const currentHorLegend = document.querySelector('#Legend-horizontal');
+            if (currentHorLegend) {
+                currentHorLegend.innerHTML += createFootnoteLegendHorizontalHTML(footnoteMatches);
+            }
+        }
     }
     
     else {      //ToggleLegend == "application"
 
-        // var filtered_application_from_data = [];
-        // for (var i=0; i<jsonDataArray_filtered.length; i++) {
-        //     filtered_application_from_data[i] = jsonDataArray_filtered[i].Application;
-        //     // if (filtered_application_from_data[i] == undefined) { filtered_application_from_data[i] = ""; }
-        // }
 
         // Filter applications based on the filtered start/stop frequency
         var filtered_application_from_data = getUniqueValuesOfAttributebyAttribute(SpectrumChart.data.jsonArrayFiltered,"Application");
 
-        Logger.log(filtered_application_from_data);
 
         // Filter items based on the input
         var filtered_legend2 = filtered_application_from_data.filter(item => item.toLowerCase().includes(inputValue_legend));
@@ -1706,6 +2691,13 @@ function PerformSearch(inputValue_legend) {
         SpectrumChart.data.colorArrayApplicationFiltered = filtered_color2;
         removeElementsByIds(SpectrumChart.data.applicationArray);
         createApplicationLegend(filtered_color2);
+        
+        // Add footnote results if any text matches found (application mode)
+        if (hasFootnoteMatches) {
+            // Append footnote legend to existing application legend
+            const currentLegend = DOMCache.get('Legend').innerHTML;
+            DOMCache.get('Legend').innerHTML = currentLegend + createFootnoteLegendHTML(footnoteMatches);
+        }
         
     }
     
@@ -1745,7 +2737,6 @@ function toggleClasses(data, addnewclass) {
         element.className = addnewclass;
     });
     
-    Logger.log(`DOM update batch (${elementsToUpdate.length} elements) in ${(performance.now() - startTime).toFixed(2)}ms`);
 }
 
 function toggleClassesbyID(id, addnewclass) {
@@ -1867,26 +2858,36 @@ function filterFrequency() {
 
     removeElementsByIds(output_elementIds);
 
-    assignStackID2(SpectrumChart.data.jsonArrayFiltered); // done
-    insertGap2(SpectrumChart.data.jsonArrayFiltered); //done
-    sortStackMembers2(SpectrumChart.data.jsonArrayFiltered);
-    assignRowID2(SpectrumChart.data.jsonArrayFiltered);
-    assignGapFrequencyLabel2(SpectrumChart.data.jsonArrayFiltered);
-    
-    // Rebuild performance optimizations for filtered data
-    PerformanceUtils.buildLookupMaps(SpectrumChart.data.jsonArrayFiltered);
-    PerformanceUtils.cacheFrequencyRanges(SpectrumChart.data.jsonArrayFiltered);
-    
-    plot(SpectrumChart.data.jsonArrayFiltered);
-    filteredLegend();
+    // Check if filtered result has data before processing
+    if (result && result.length > 0) {
+        assignStackID2(SpectrumChart.data.jsonArrayFiltered); // done
+        insertGap2(SpectrumChart.data.jsonArrayFiltered); //done
+        sortStackMembers2(SpectrumChart.data.jsonArrayFiltered);
+        assignRowID2(SpectrumChart.data.jsonArrayFiltered);
+        assignGapFrequencyLabel2(SpectrumChart.data.jsonArrayFiltered);
+        
+        // Rebuild performance optimizations for filtered data
+        PerformanceUtils.buildLookupMaps(SpectrumChart.data.jsonArrayFiltered);
+        PerformanceUtils.cacheFrequencyRanges(SpectrumChart.data.jsonArrayFiltered);
+        
+        plot(SpectrumChart.data.jsonArrayFiltered);
+        filteredLegend();
+    } else {
+        // Handle empty results - clear display
+        // Clear any existing display
+        const outputSection = DOMCache.get('output');
+        if (outputSection) {
+            outputSection.innerHTML = '';
+        }
+        // Clear legends
+        clearAllLegends();
+    }
 }
 
 
 function assignStackID2(data) {
-    Logger.log("assignStackID2", data.length);
 
     if (!data || data.length === 0) {
-        Logger.error("assignStackID2: No data provided");
         return;
     }
 
@@ -1926,7 +2927,7 @@ function assignStackID2(data) {
 
 
 function insertGap2(data) {
-    Logger.log("insertGap");
+    if (!data || data.length === 0) return;
     var last_stackid = data[data.length-1].stack_id
     // displayOutput(data);
     var gap_position = [];
@@ -1943,12 +2944,11 @@ function insertGap2(data) {
         }
     } 
         assignStackID2(data);
-        Logger.log("End insertGap2");
 }
 
 
 function assignRowID2(data) {
-
+    if (!data || data.length === 0) return;
     var number_of_stacks = data[data.length-1].stack_id;
     var row_id = 0;
     var length_accum = 0;   // to find index of data array for each stack
@@ -2010,6 +3010,7 @@ function assignRowID2(data) {
 }
 
 function assignRowID3(data) {
+    if (!data || data.length === 0) return;
     var row_num = SpectrumChart.data.jsonArrayFiltered[SpectrumChart.data.jsonArrayFiltered.length-1].row_id + 1
     var number_of_stacks = data[data.length-1].stack_id + 1;
     var stack_per_row = Math.ceil(number_of_stacks/row_num);
@@ -2033,7 +3034,7 @@ function assignRowID3(data) {
 
         assigned_stack_count += 1;
     }
-    if (data[data.length-1].EngService == "Not Allocation") {
+    if (data && data.length > 0 && data[data.length-1].EngService == "Not Allocation") {
         data[data.length-1].row_id = data[data.length-1].row_id + 1;
     }
 
@@ -2054,6 +3055,7 @@ function sortStackMembers2(data) {
     // console.log("sortStackMembers2");
     //sort order by Bandwidth in every stack
     var result = [];
+    if (!data || data.length === 0) return result;
     for(var i=0; i<=data[data.length-1].stack_id; i++){  // loop by the number of stacks e.g. 6 rounds for 6 stacks
         var family = getStackMembers(data, i);
         var sorted_family = family.sort(function(a, b) {
@@ -2071,6 +3073,7 @@ function sortStackMembers2(data) {
 
 function assignGapFrequencyLabel2(data) {
     SpectrumChart.data.frequencyLabelArray = [];
+    if (!data || data.length === 0) return;
     for (var i=0; i<=data[data.length-1].row_id; i++) 
     {
         const row_family = data.filter(word => word.row_id == i);
@@ -2105,7 +3108,6 @@ function filteredLegend(){
    
     var filtered_services = getUniqueValuesOfAttributebyAttribute(SpectrumChart.data.jsonArrayFiltered,"EngService");
 
-    Logger.log(filtered_services);
     const filtered_color = SpectrumChart.data.colorArray.filter(word => filtered_services.includes(word.Service));
     removeElementsByIds(SpectrumChart.data.serviceArray);
     createServiceLegend(filtered_color);
@@ -2141,14 +3143,12 @@ function logContainerWidth() {
     const container = DOMCache.get('section_chart');
     SpectrumChart.dimensions.containerWidth = container.clientWidth;
     SpectrumChart.dimensions.containerWidth = Math.round(SpectrumChart.dimensions.containerWidth / 10) * 10;
-    Logger.log("Container Width: " + SpectrumChart.dimensions.containerWidth + " pixels");
 }
 
 
 function logContainerHeight() {
     const container = DOMCache.get('Main');
     SpectrumChart.dimensions.containerHeight = container.clientHeight;
-    Logger.log("Container Height: " + SpectrumChart.dimensions.containerHeight + " pixels");
     return SpectrumChart.dimensions.containerHeight;
 }
 
@@ -2156,14 +3156,12 @@ function logContainerHeight() {
 // Function to log the screen width
 function logScreenWidth() {
     SpectrumChart.dimensions.screenWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-    Logger.log("Screen Width: " + SpectrumChart.dimensions.screenWidth + " pixels");
 }
 
 
 // Function to log the screen height
 function logScreenHeight() {
     SpectrumChart.dimensions.screenHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-    Logger.log("Screen Height: " + SpectrumChart.dimensions.screenHeight + " pixels");
 }
 
 
@@ -2240,7 +3238,6 @@ function selectMenu(menu) {
     // Get the id of the selected menu
     SpectrumChart.config.selectedMenu = menu.id;
     
-    Logger.log("--------------------------------------------")
     if (SpectrumChart.config.selectedMenu == "nfat") {
         SpectrumChart.sheets.index0 = 0;
         SpectrumChart.sheets.index1 = 1;
@@ -2253,9 +3250,7 @@ function selectMenu(menu) {
     }
     else
     {
-        Logger.error("Error! unknown selected menu")
     }
-    Logger.log("SelectedMenu "+SpectrumChart.config.selectedMenu);
 
 
     
@@ -2315,6 +3310,8 @@ function selectMenu(menu) {
 // -----------------------------Create card----------------------------------------------------------
 
 let activeCards = new Map();  
+let activeFootnoteCards = new Map(); // Map to track footnote cards
+let cardParentChildMap = new Map();  // Map to track parent-child relationships
 const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         let highestZIndex = 1;
@@ -2346,16 +3343,47 @@ const canvas = document.getElementById('canvas');
             card.style.left = `${initialX}px`;
             card.style.top = `${initialY}px`;
 
+            // Get the span ID to find the original data
+            const spanId = span.id;
+            const originalData = SpectrumChart.data.jsonArray.find(item => item.id == spanId);
+            
+            var decodedDetail;
+            var cardHeader;
+            // Use the same method as normal display - always use span.dataset values
+            var cardHeader = span.dataset.content.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+            var decodedDetail = span.dataset.detail.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+            
             card.innerHTML = `
                 <div class="card-header">
-                    <span>${span.dataset.content}</span>
+                    <span>${cardHeader}</span>
                     <div class="close-btn">×</div>
                 </div>
-                <div class="card-body">${span.dataset.detail}</div>
+                <div class="card-body">${decodedDetail}</div>
             `;
 
             const closeBtn = card.querySelector('.close-btn');
             closeBtn.addEventListener('click', () => {
+                // Close all footnote cards that belong to this main card
+                const footnoteCardsToRemove = [];
+                cardParentChildMap.forEach((parentCard, footnoteCard) => {
+                    if (parentCard === card) {
+                        footnoteCard.remove();
+                        footnoteCardsToRemove.push(footnoteCard);
+                    }
+                });
+                
+                // Clean up footnote card tracking
+                footnoteCardsToRemove.forEach(footnoteCard => {
+                    cardParentChildMap.delete(footnoteCard);
+                    // Find and remove from activeFootnoteCards
+                    for (let [footnoteNumber, fCard] of activeFootnoteCards.entries()) {
+                        if (fCard === footnoteCard) {
+                            activeFootnoteCards.delete(footnoteNumber);
+                            break;
+                        }
+                    }
+                });
+                
                 card.remove();
                 activeCards.delete(span);
                 drawConnections();
@@ -2417,9 +3445,166 @@ const canvas = document.getElementById('canvas');
             drawConnections();
         }
 
+        // Add event listener for footnote clicks
+        document.body.addEventListener('click', (e) => {
+            const footnoteLink = e.target.closest('.footnote-link');
+            if (footnoteLink) {
+                e.stopPropagation(); // Prevent triggering other click events
+                const footnoteNumber = footnoteLink.dataset.footnote;
+                const parentCard = footnoteLink.closest('.custom-card');
+                if (parentCard && !activeFootnoteCards.has(footnoteNumber)) {
+                    createFootnoteCard(e, footnoteNumber, parentCard);
+                }
+            }
+        });
+
+        // Add event listener for Thailand footnote clicks
+        document.body.addEventListener('click', (e) => {
+            const thailandFootnoteLink = e.target.closest('.thailand-footnote-link');
+            if (thailandFootnoteLink) {
+                e.stopPropagation(); // Prevent triggering other click events
+                const footnoteNumber = thailandFootnoteLink.dataset.thailandFootnote;
+                const parentCard = thailandFootnoteLink.closest('.custom-card');
+                if (parentCard && !activeFootnoteCards.has('thailand-' + footnoteNumber)) {
+                    createThailandFootnoteCard(e, footnoteNumber, parentCard);
+                }
+            }
+        });
+
+        function createFootnoteCard(e, footnoteNumber, parentCard) {
+            const footnoteDetail = PerformanceUtils.getFootnoteDetail(footnoteNumber);
+            
+            const footnoteCard = document.createElement('div');
+            footnoteCard.className = 'custom-card footnote-card';
+            
+            // Position footnote card relative to parent card
+            const parentRect = parentCard.getBoundingClientRect();
+            const initialX = parentRect.right + 20; // 20px to the right of parent card
+            const initialY = parentRect.top;
+            
+            footnoteCard.style.position = 'absolute';
+            footnoteCard.style.left = `${initialX}px`;
+            footnoteCard.style.top = `${initialY}px`;
+            footnoteCard.style.borderLeft = '3px solid #007bff';
+            footnoteCard.style.backgroundColor = '#f8f9fa';
+            
+            footnoteCard.innerHTML = `
+                <div class="card-header" style="background-color: #e3f2fd; font-weight: bold;">
+                    <span>Footnote ${footnoteNumber}</span>
+                    <div class="close-btn">×</div>
+                </div>
+                <div class="card-body">${footnoteDetail}</div>
+            `;
+            
+            const closeBtn = footnoteCard.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => {
+                footnoteCard.remove();
+                activeFootnoteCards.delete(footnoteNumber);
+                cardParentChildMap.delete(footnoteCard);
+                drawConnections();
+            });
+            
+            // Make footnote card draggable
+            const header = footnoteCard.querySelector('.card-header');
+            let isDragging = false;
+            let offset = [0, 0];
+            
+            header.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                offset = [footnoteCard.offsetLeft - e.clientX, footnoteCard.offsetTop - e.clientY];
+                bringToFront(footnoteCard);
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    footnoteCard.style.left = `${e.clientX + offset[0]}px`;
+                    footnoteCard.style.top = `${e.clientY + offset[1]}px`;
+                    drawConnections();
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            // Track relationships
+            activeFootnoteCards.set(footnoteNumber, footnoteCard);
+            cardParentChildMap.set(footnoteCard, parentCard);
+            
+            document.getElementById('cards-container').appendChild(footnoteCard);
+            bringToFront(footnoteCard);
+            drawConnections();
+        }
+
+        function createThailandFootnoteCard(e, footnoteNumber, parentCard) {
+            const footnoteDetail = PerformanceUtils.getThailandFootnoteDetail(footnoteNumber);
+            
+            const footnoteCard = document.createElement('div');
+            footnoteCard.className = 'custom-card thailand-footnote-card';
+            
+            // Position footnote card relative to parent card (slightly offset from international footnotes)
+            const parentRect = parentCard.getBoundingClientRect();
+            const initialX = parentRect.right + 20; // 20px to the right of parent card
+            const initialY = parentRect.top + 50; // 50px lower than international footnotes
+            
+            footnoteCard.style.position = 'absolute';
+            footnoteCard.style.left = `${initialX}px`;
+            footnoteCard.style.top = `${initialY}px`;
+            footnoteCard.style.borderLeft = '3px solid #28a745';
+            footnoteCard.style.backgroundColor = '#f8ffe8';
+            
+            footnoteCard.innerHTML = `
+                <div class="card-header" style="background-color: #d4edda; font-weight: bold; color: #155724;">
+                    <span>${footnoteNumber}</span>
+                    <div class="close-btn">×</div>
+                </div>
+                <div class="card-body">${footnoteDetail}</div>
+            `;
+            
+            const closeBtn = footnoteCard.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => {
+                footnoteCard.remove();
+                activeFootnoteCards.delete('thailand-' + footnoteNumber);
+                cardParentChildMap.delete(footnoteCard);
+                drawConnections();
+            });
+            
+            // Make Thailand footnote card draggable
+            const header = footnoteCard.querySelector('.card-header');
+            let isDragging = false;
+            let offset = [0, 0];
+            
+            header.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                offset = [footnoteCard.offsetLeft - e.clientX, footnoteCard.offsetTop - e.clientY];
+                bringToFront(footnoteCard);
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    footnoteCard.style.left = `${e.clientX + offset[0]}px`;
+                    footnoteCard.style.top = `${e.clientY + offset[1]}px`;
+                    drawConnections();
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            // Track relationships (use 'thailand-' prefix to distinguish)
+            activeFootnoteCards.set('thailand-' + footnoteNumber, footnoteCard);
+            cardParentChildMap.set(footnoteCard, parentCard);
+            
+            document.getElementById('cards-container').appendChild(footnoteCard);
+            bringToFront(footnoteCard);
+            drawConnections();
+        }
+
         function drawConnections() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         
+            // Draw primary connections (frequency rectangle → main card)
             activeCards.forEach((card, span) => {
                 const spanRect = span.getBoundingClientRect();
                 const cardRect = card.getBoundingClientRect();
@@ -2433,6 +3618,7 @@ const canvas = document.getElementById('canvas');
                 const cardX = cardRect.left + cardRect.width / 2 - canvasRect.left;
                 const cardY = cardRect.top - canvasRect.top;
         
+                // Primary thread style
                 ctx.beginPath();
                 ctx.moveTo(spanX, spanY);
                 ctx.lineTo(cardX, cardY);
@@ -2440,14 +3626,53 @@ const canvas = document.getElementById('canvas');
                 ctx.lineWidth = 2;
                 ctx.stroke();
             });
+
+            // Draw secondary connections (main card → footnote card)
+            activeFootnoteCards.forEach((footnoteCard, footnoteNumber) => {
+                const parentCard = cardParentChildMap.get(footnoteCard);
+                if (parentCard) {
+                    const parentRect = parentCard.getBoundingClientRect();
+                    const footnoteRect = footnoteCard.getBoundingClientRect();
+                    
+                    // Get canvas position relative to the document
+                    const canvasRect = canvas.getBoundingClientRect();
+                    
+                    // Adjust positions by subtracting canvas offset
+                    const parentX = parentRect.right - canvasRect.left;
+                    const parentY = parentRect.top + parentRect.height / 2 - canvasRect.top;
+                    const footnoteX = footnoteRect.left - canvasRect.left;
+                    const footnoteY = footnoteRect.top + footnoteRect.height / 2 - canvasRect.top;
+                    
+                    // Secondary thread style (same as main card threads)
+                    ctx.beginPath();
+                    ctx.moveTo(parentX, parentY);
+                    ctx.lineTo(footnoteX, footnoteY);
+                    ctx.strokeStyle = '#666';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            });
         }
         
     
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
+                // Close all footnote cards first
+                activeFootnoteCards.forEach(card => card.remove());
+                activeFootnoteCards.clear();
+                
+                // Close all main cards
                 activeCards.forEach(card => card.remove());
                 activeCards.clear();
+                
+                // Close all center footnote cards
+                const centerFootnoteCards = document.querySelectorAll('.center-footnote-card');
+                centerFootnoteCards.forEach(card => card.remove());
+                
+                // Clear parent-child relationships
+                cardParentChildMap.clear();
+                
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
         });
