@@ -1142,7 +1142,7 @@ function plot(data){
         text += '<span id="newline-container" class="newline-container" style="height:'+height_newline+'px;"> </span>'; //insert new line
 
     } // end of row-loop
-    if(SpectrumChart.config.hide==0){text +='<div id="Legend-horizontal"></div>'}
+    // Horizontal legend container is now in HTML, no need to create it here
         
     DOMCache.get('output').innerHTML += text;
     
@@ -1287,8 +1287,6 @@ function createServiceLegendHorizontal(colorArray) {
     var grouped_legend = GroupAndRemoveDupplicate(data_legend);
     grouped_legend = leftJoin(colorArray, grouped_legend, "Service", "Service");
 
-    colorLegend += '<div id="Legend-horizontal" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">';
-
     for (var i = 0; i < grouped_legend.length; i++) {
         colorLegend += '<div id="' + grouped_legend[i].Service + '" class="legend-hor" style="display: inline-flex; align-items: center; cursor: default;">';
         colorLegend += '<span class="legend-hor" style="color: ' + grouped_legend[i].Color + '; font-size: 20px;">&#x2B23;</span>';
@@ -1310,9 +1308,7 @@ function createServiceLegendHorizontal(colorArray) {
         colorLegend += '</div>';
     }
 
-    colorLegend += "</div>";
-
-    const horizontalLegend = DOMCache.get('Legend-horizontal');
+    const horizontalLegend = document.getElementById('Legend-horizontal');
     if (horizontalLegend) {
         horizontalLegend.innerHTML = colorLegend;
     }
@@ -1354,8 +1350,6 @@ function createFootnoteLegend(footnotes) {
 function createFootnoteLegendHorizontal(footnotes) {
     var footnoteLegend = "";
     
-    footnoteLegend += '<div id="Legend-horizontal" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">';
-    
     for (var i = 0; i < footnotes.length; i++) {
         var footnote = footnotes[i];
         var footnoteId = 'footnote-hor-' + footnote.number.replace('.', '-');
@@ -1367,9 +1361,7 @@ function createFootnoteLegendHorizontal(footnotes) {
         footnoteLegend += '</div>';
     }
     
-    footnoteLegend += "</div>";
-    
-    const horizontalLegend = DOMCache.get('Legend-horizontal');
+    const horizontalLegend = document.getElementById('Legend-horizontal');
     if (horizontalLegend) {
         horizontalLegend.innerHTML = footnoteLegend;
     }
@@ -1484,12 +1476,8 @@ function createThailandFootnoteLegendHorizontalHTML(footnotes) {
  */
 function showFootnoteCardInCenter(footnoteNumber) {
     
-    // Instant fade effect for immediate visual response
-    DOMCache.updateClassesInstantly(
-        '.box, .highlight, .click', 
-        ['highlight', 'click', 'box'], 
-        ['faddd']
-    );
+    // Enhanced frequency box highlighting based on International footnote content
+    highlightFrequencyBoxesByInternationalFootnote(footnoteNumber);
     
     const footnoteDetail = PerformanceUtils.getFootnoteDetail(footnoteNumber);
     
@@ -1649,6 +1637,85 @@ function highlightFrequencyBoxesByThailandFootnote(footnoteNumber) {
     // Apply states instantly using optimized methods
     DOMCache.setFrequencyBoxState(elementsToHighlight, 'highlight');
     elementsToHighlight.forEach(box => box.classList.add('thailand-highlighted'));
+    
+    DOMCache.setFrequencyBoxState(elementsToFade, 'fade');
+    
+}
+
+/**
+ * Highlight frequency boxes based on International footnote content
+ * @param {string} footnoteNumber - International footnote number to check
+ */
+function highlightFrequencyBoxesByInternationalFootnote(footnoteNumber) {
+    
+    // Get all frequency boxes
+    const allFrequencyBoxes = document.querySelectorAll('.box, .highlight, .click, .faddd');
+    
+    const frequencyDataWithFootnote = SpectrumChart.data.jsonArray.filter(entry => {
+        let hasFootnote = false;
+        
+        if (entry.International_Footnote && Array.isArray(entry.International_Footnote)) {
+            // Check if the footnoteNumber exists in the International_Footnote array
+            hasFootnote = entry.International_Footnote.some(footnote => {
+                // Handle both plain text and HTML footnotes
+                let footnoteText = footnote;
+                if (typeof footnote === 'string' && footnote.includes('data-footnote=')) {
+                    // Extract footnote number from HTML data-footnote attribute
+                    const match = footnote.match(/data-footnote="([^"]+)"/);
+                    footnoteText = match ? match[1] : footnote;
+                }
+                return footnoteText.trim() === footnoteNumber.trim();
+            });
+        }
+        
+        return hasFootnote;
+    });
+    
+    // Get the unique IDs of frequency boxes that should be highlighted
+    const idsToHighlight = new Set();
+    frequencyDataWithFootnote.forEach(entry => {
+        // The frequency boxes use array indices as IDs, so we need to find the index
+        const entryIndex = SpectrumChart.data.jsonArray.indexOf(entry);
+        if (entryIndex !== -1) {
+            // Convert to string to match DOM element IDs
+            idsToHighlight.add(String(entryIndex));
+        }
+    });
+    
+    // If no IDs found, try using alternative matching approach
+    if (idsToHighlight.size === 0 && frequencyDataWithFootnote.length > 0) {
+        // Try to find matching boxes by checking if the box ID exists in our data
+        frequencyDataWithFootnote.forEach(entry => {
+            // Check various possible ID patterns
+            const possibleIds = [
+                entry.Start_Frequency + '-' + entry.Stop_Frequency,
+                entry.EngService,
+                entry.Start_Frequency + '_' + entry.EngService,
+            ];
+            
+            possibleIds.forEach(possibleId => {
+                if (possibleId && document.getElementById(possibleId)) {
+                    idsToHighlight.add(String(possibleId));
+                }
+            });
+        });
+    }
+    
+    // Ultra-fast DOM updates for immediate visual response
+    // Separate elements into highlight and fade groups for batch processing
+    const elementsToHighlight = [];
+    const elementsToFade = [];
+    
+    allFrequencyBoxes.forEach((box) => {
+        if (idsToHighlight.has(box.id)) {
+            elementsToHighlight.push(box);
+        } else {
+            elementsToFade.push(box);
+        }
+    });
+    
+    // Apply states instantly using optimized methods
+    DOMCache.setFrequencyBoxState(elementsToHighlight, 'highlight');
     
     DOMCache.setFrequencyBoxState(elementsToFade, 'fade');
     
@@ -3292,17 +3359,65 @@ function selectMenu(menu) {
         if (toggleSwitch) {
             toggleSwitch.addEventListener('change', function() {
                 let statusText = document.getElementById('ver-hor-text');
+                let verticalLegend = document.getElementById('Legend');
+                let horizontalLegendRow = document.getElementById('horizontal-legend-row');
+                
                 if (this.checked) { 
+                    // Switch to horizontal legend
                     SpectrumChart.config.hide = 0;
                     statusText.textContent = "Horizontal legend";
+                    
+                    // Hide vertical legend and show horizontal legend row
+                    if (verticalLegend) {
+                        verticalLegend.style.display = 'none';
+                    }
+                    if (horizontalLegendRow) {
+                        horizontalLegendRow.style.display = 'block';
+                    }
+                    
                     filterFrequency()
                 } else {
+                    // Switch to vertical legend
                     SpectrumChart.config.hide = 1;
                     statusText.textContent = "Vertical legend";
+                    
+                    // Show vertical legend and hide horizontal legend row
+                    if (verticalLegend) {
+                        verticalLegend.style.display = 'block';
+                    }
+                    if (horizontalLegendRow) {
+                        horizontalLegendRow.style.display = 'none';
+                    }
+                    
                     filterFrequency()
                 }
             });
         }
+        
+        // Initialize legend display state based on default configuration
+        function initializeLegendDisplay() {
+            let verticalLegend = document.getElementById('Legend');
+            let horizontalLegendRow = document.getElementById('horizontal-legend-row');
+            let statusText = document.getElementById('ver-hor-text');
+            let toggleSwitch = document.getElementById('toggleSwitch');
+            
+            if (SpectrumChart.config.hide === 1) {
+                // Default: Vertical legend
+                if (verticalLegend) verticalLegend.style.display = 'block';
+                if (horizontalLegendRow) horizontalLegendRow.style.display = 'none';
+                if (statusText) statusText.textContent = "Vertical legend";
+                if (toggleSwitch) toggleSwitch.checked = false;
+            } else {
+                // Horizontal legend
+                if (verticalLegend) verticalLegend.style.display = 'none';
+                if (horizontalLegendRow) horizontalLegendRow.style.display = 'block';
+                if (statusText) statusText.textContent = "Horizontal legend";
+                if (toggleSwitch) toggleSwitch.checked = true;
+            }
+        }
+        
+        // Initialize display state after DOM is loaded
+        setTimeout(initializeLegendDisplay, 100);
     });
 
 
