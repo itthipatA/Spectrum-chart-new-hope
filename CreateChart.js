@@ -2297,7 +2297,7 @@ function displayFootnoteOnlyResults(footnoteMatches, footnoteType) {
     if (footnoteType === 'international') {
         const legendHTML = createFootnoteLegendHTML(footnoteMatches);
         DOMCache.get('Legend').innerHTML = legendHTML;
-        
+            
         // For horizontal legend
         const horizontalLegend = document.querySelector('#Legend-horizontal');
         if (horizontalLegend) {
@@ -2306,7 +2306,7 @@ function displayFootnoteOnlyResults(footnoteMatches, footnoteType) {
     } else if (footnoteType === 'thailand') {
         const legendHTML = createThailandFootnoteLegendHTML(footnoteMatches);
         DOMCache.get('Legend').innerHTML = legendHTML;
-        
+            
         // For horizontal legend
         const horizontalLegend = document.querySelector('#Legend-horizontal');
         if (horizontalLegend) {
@@ -2720,7 +2720,7 @@ function PerformSearch(inputValue_legend) {
             // Append footnote legend to existing service legend
             const currentLegend = DOMCache.get('Legend').innerHTML;
             DOMCache.get('Legend').innerHTML = currentLegend + createFootnoteLegendHTML(footnoteMatches);
-            
+                    
             // For horizontal legend, append to existing content  
             const currentHorLegend = document.querySelector('#Legend-horizontal');
             if (currentHorLegend) {
@@ -2764,7 +2764,7 @@ function PerformSearch(inputValue_legend) {
             // Append footnote legend to existing application legend
             const currentLegend = DOMCache.get('Legend').innerHTML;
             DOMCache.get('Legend').innerHTML = currentLegend + createFootnoteLegendHTML(footnoteMatches);
-        }
+                }
         
     }
     
